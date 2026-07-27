@@ -1,11 +1,12 @@
-# Nosso Diário de Filmes
+# Avora
 
 App mobile para casais/amigos/famílias registrarem, em grupo, os filmes que assistiram — com timeline, avaliações e (futuramente) a seção "Memórias". Veja o plano técnico completo em `docs/plano-tecnico.md` (ou no histórico da conversa que gerou este projeto).
 
 ## Stack
 
-- **App**: Flutter (`lib/`, estrutura feature-first em `lib/features/{auth,groups,movies,timeline,profile}`)
+- **App**: Flutter (`lib/`, estrutura feature-first em `lib/features/{auth,groups,movies,timeline,profile}`), pacote Dart `avora`, bundle id `com.avora.app`
 - **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions) — schema em `supabase/migrations/`, proxy do TMDB em `supabase/functions/`
+- **Identidade visual**: logo/ícone/splash em `assets/branding/` (gerados a partir de `avora_icon.png` via `flutter_launcher_icons` e `flutter_native_splash` — veja a config no final do `pubspec.yaml`). Para regenerar após trocar a arte, rode `dart run flutter_launcher_icons` e `dart run flutter_native_splash:create`.
 
 ## Pré-requisitos já instalados nesta máquina
 

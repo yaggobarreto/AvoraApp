@@ -69,12 +69,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.movie_filter_rounded, size: 64),
-                  const SizedBox(height: 12),
+                  Image.asset('assets/branding/avora_logo_full.png', height: 160),
+                  const SizedBox(height: 8),
                   Text(
                     'Nosso Diário de Filmes',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 32),
                   if (_isSignUp) ...[

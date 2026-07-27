@@ -1,4 +1,4 @@
-package com.meusapp.meusapp
+package com.avora.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:meusapp/features/auth/presentation/login_screen.dart';
+import 'package:avora/features/auth/presentation/login_screen.dart';
 
 void main() {
   testWidgets('Login screen shows email and password fields', (tester) async {

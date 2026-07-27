@@ -7,18 +7,17 @@ import 'core/widgets/auth_gate.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseConfig.initialize();
-  runApp(const MeusAppRoot());
+  runApp(const AvoraApp());
 }
 
-class MeusAppRoot extends StatelessWidget {
-  const MeusAppRoot({super.key});
+class AvoraApp extends StatelessWidget {
+  const AvoraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Nosso Diário de Filmes',
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      title: 'Avora',
+      theme: AppTheme.dark(),
       home: const AuthGate(),
     );
   }
