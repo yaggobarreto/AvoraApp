@@ -17,17 +17,13 @@ class GroupsRepository {
   Future<Group> createGroup(String name) async {
     final userId = supabase.auth.currentUser!.id;
 
+    // The `on_group_created` trigger adds the creator to group_members as
+    // owner automatically, so no separate membership insert is needed here.
     final groupRow = await supabase
         .from('groups')
         .insert({'name': name, 'created_by': userId})
         .select()
         .single();
-
-    await supabase.from('group_members').insert({
-      'group_id': groupRow['id'],
-      'user_id': userId,
-      'role': 'owner',
-    });
 
     return Group.fromMap(groupRow);
   }
