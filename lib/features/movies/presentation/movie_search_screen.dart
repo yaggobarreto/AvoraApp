@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
@@ -82,11 +83,17 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
+              style: const TextStyle(color: AppTheme.cardOnSurface),
               decoration: InputDecoration(
                 hintText: 'Ex: Interestelar',
-                border: const OutlineInputBorder(),
+                filled: true,
+                fillColor: AppTheme.cardSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
+                  icon: const Icon(Icons.search, color: AppTheme.cardOnSurface),
                   onPressed: _search,
                 ),
               ),
@@ -106,16 +113,26 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
             child: Stack(
               children: [
                 ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: _results.length,
                   itemBuilder: (context, index) {
                     final result = _results[index];
-                    return ListTile(
-                      leading: result.posterUrl != null
-                          ? Image.network(result.posterUrl!, width: 40, fit: BoxFit.cover)
-                          : const Icon(Icons.movie),
-                      title: Text(result.title),
-                      subtitle: Text(result.year?.toString() ?? ''),
-                      onTap: _isLoggingMovie ? null : () => _selectMovie(result),
+                    return Card(
+                      child: ListTile(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: result.posterUrl != null
+                              ? Image.network(
+                                  result.posterUrl!,
+                                  width: 40,
+                                  fit: BoxFit.cover,
+                                )
+                              : const Icon(Icons.movie),
+                        ),
+                        title: Text(result.title),
+                        subtitle: Text(result.year?.toString() ?? ''),
+                        onTap: _isLoggingMovie ? null : () => _selectMovie(result),
+                      ),
                     );
                   },
                 ),

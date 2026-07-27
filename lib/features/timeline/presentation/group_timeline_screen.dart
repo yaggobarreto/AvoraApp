@@ -56,7 +56,10 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
           final entries = snapshot.data ?? [];
           if (entries.isEmpty) {
             return const Center(
-              child: Text('Nenhum filme registrado ainda neste grupo.'),
+              child: Text(
+                'Nenhum filme registrado ainda neste grupo.',
+                style: TextStyle(color: Colors.white),
+              ),
             );
           }
 
@@ -67,30 +70,43 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
           final years = entriesByYear.keys.toList()..sort((a, b) => b.compareTo(a));
 
           return ListView(
+            padding: const EdgeInsets.only(bottom: 8),
             children: [
               for (final year in years) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                   child: Text(
                     '$year',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(color: Colors.white),
                   ),
                 ),
                 for (final entry in entriesByYear[year]!)
-                  ListTile(
-                    leading: entry.movie.posterUrl != null
-                        ? Image.network(entry.movie.posterUrl!, width: 40, fit: BoxFit.cover)
-                        : const Icon(Icons.movie),
-                    title: Text('🎬 ${entry.movie.title}'),
-                    subtitle: Builder(builder: (context) {
-                      final stars = (entry.rating ?? 0).round().clamp(0, 5);
-                      return Text(
-                        '${'★' * stars}${'☆' * (5 - stars)} '
-                        '· ${watchLocationLabels[entry.watchLocation]}'
-                        '${entry.timesWatched > 1 ? ' · Assistido ${entry.timesWatched}x' : ''}',
-                      );
-                    }),
-                    trailing: entry.emojis.isNotEmpty ? Text(entry.emojis.join()) : null,
+                  Card(
+                    child: ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: entry.movie.posterUrl != null
+                            ? Image.network(
+                                entry.movie.posterUrl!,
+                                width: 40,
+                                fit: BoxFit.cover,
+                              )
+                            : const Icon(Icons.movie),
+                      ),
+                      title: Text('🎬 ${entry.movie.title}'),
+                      subtitle: Builder(builder: (context) {
+                        final stars = (entry.rating ?? 0).round().clamp(0, 5);
+                        return Text(
+                          '${'★' * stars}${'☆' * (5 - stars)} '
+                          '· ${watchLocationLabels[entry.watchLocation]}'
+                          '${entry.timesWatched > 1 ? ' · Assistido ${entry.timesWatched}x' : ''}',
+                        );
+                      }),
+                      trailing: entry.emojis.isNotEmpty ? Text(entry.emojis.join()) : null,
+                    ),
                   ),
               ],
             ],

@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../core/network/supabase_config.dart';
 
 class ProfileStats {
@@ -28,5 +32,26 @@ class ProfileRepository {
       avatarUrl: profileRow['avatar_url'] as String?,
       moviesWatched: (watchEntries as List).length,
     );
+  }
+
+  Future<String> uploadAvatar(Uint8List bytes, String fileExtension) async {
+    final userId = supabase.auth.currentUser!.id;
+    final path = '$userId/avatar.$fileExtension';
+
+    await supabase.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(upsert: true, contentType: 'image/$fileExtension'),
+        );
+
+    final publicUrl = supabase.storage.from('avatars').getPublicUrl(path);
+    // Cache-bust so the new photo shows immediately instead of a cached old one.
+    final avatarUrl = '$publicUrl?updated=${DateTime.now().millisecondsSinceEpoch}';
+
+    await supabase
+        .from('profiles')
+        .update({'avatar_url': avatarUrl}).eq('id', userId);
+
+    return avatarUrl;
   }
 }

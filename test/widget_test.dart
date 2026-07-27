@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:avora/core/widgets/gradient_button.dart';
 import 'package:avora/features/auth/presentation/login_screen.dart';
 
 void main() {
@@ -10,6 +11,6 @@ void main() {
     expect(find.text('Nosso Diário de Filmes'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Email'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Senha'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Entrar'), findsOneWidget);
+    expect(find.widgetWithText(GradientButton, 'Entrar'), findsOneWidget);
   });
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/gradient_button.dart';
 import '../data/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -69,76 +71,97 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Image.asset('assets/branding/avora_logo_full.png', height: 160),
+                  Image.asset('assets/branding/avora_logo_full.png', height: 140),
                   const SizedBox(height: 8),
                   Text(
                     'Nosso Diário de Filmes',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                        ),
                   ),
-                  const SizedBox(height: 32),
-                  if (_isSignUp) ...[
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Nome'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null,
+                  const SizedBox(height: 28),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardSurface,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'Email inválido' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Senha'),
-                    validator: (v) => (v == null || v.length < 6)
-                        ? 'Mínimo de 6 caracteres'
-                        : null,
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_isSignUp) ...[
+                          TextFormField(
+                            controller: _nameController,
+                            style: const TextStyle(color: AppTheme.cardOnSurface),
+                            decoration: const InputDecoration(labelText: 'Nome'),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Informe seu nome'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: const TextStyle(color: AppTheme.cardOnSurface),
+                          decoration: const InputDecoration(labelText: 'Email'),
+                          validator: (v) =>
+                              (v == null || !v.contains('@')) ? 'Email inválido' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          style: const TextStyle(color: AppTheme.cardOnSurface),
+                          decoration: const InputDecoration(labelText: 'Senha'),
+                          validator: (v) => (v == null || v.length < 6)
+                              ? 'Mínimo de 6 caracteres'
+                              : null,
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _errorMessage!,
+                            style: TextStyle(color: Theme.of(context).colorScheme.error),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        GradientButton(
+                          onPressed: _isLoading ? null : _submit,
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(_isSignUp ? 'Criar conta' : 'Entrar'),
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() => _isSignUp = !_isSignUp),
+                          child: Text(
+                            _isSignUp
+                                ? 'Já tem conta? Entrar'
+                                : 'Não tem conta? Criar agora',
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        OutlinedButton.icon(
+                          onPressed: null,
+                          icon: const Icon(Icons.g_mobiledata),
+                          label: const Text('Continuar com Google (configurar depois)'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: null,
+                          icon: const Icon(Icons.apple),
+                          label: const Text('Continuar com Apple (configurar depois)'),
+                        ),
+                      ],
                     ),
-                  ],
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_isSignUp ? 'Criar conta' : 'Entrar'),
-                  ),
-                  TextButton(
-                    onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                    child: Text(
-                      _isSignUp
-                          ? 'Já tem conta? Entrar'
-                          : 'Não tem conta? Criar agora',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.g_mobiledata),
-                    label: const Text('Continuar com Google (configurar depois)'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.apple),
-                    label: const Text('Continuar com Apple (configurar depois)'),
                   ),
                 ],
               ),

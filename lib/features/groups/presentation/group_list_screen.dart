@@ -111,28 +111,34 @@ class _GroupListScreenState extends State<GroupListScreen> {
           final groups = snapshot.data ?? [];
           if (groups.isEmpty) {
             return const Center(
-              child: Text('Nenhum grupo ainda. Crie um ou entre com um código.'),
+              child: Text(
+                'Nenhum grupo ainda. Crie um ou entre com um código.',
+                style: TextStyle(color: Colors.white),
+              ),
             );
           }
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: groups.length,
             itemBuilder: (context, index) {
               final group = groups[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: group.photoUrl != null
-                      ? NetworkImage(group.photoUrl!)
-                      : null,
-                  child: group.photoUrl == null
-                      ? Text(group.name.substring(0, 1).toUpperCase())
-                      : null,
-                ),
-                title: Text(group.name),
-                subtitle: Text('Convite: ${group.inviteCode}'),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => GroupTimelineScreen(group: group),
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: group.photoUrl != null
+                        ? NetworkImage(group.photoUrl!)
+                        : null,
+                    child: group.photoUrl == null
+                        ? Text(group.name.substring(0, 1).toUpperCase())
+                        : null,
+                  ),
+                  title: Text(group.name),
+                  subtitle: Text('Convite: ${group.inviteCode}'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => GroupTimelineScreen(group: group),
+                    ),
                   ),
                 ),
               );
