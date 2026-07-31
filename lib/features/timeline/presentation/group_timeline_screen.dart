@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/movie_rail.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../groups/domain/group.dart';
 import '../../movies/domain/movie.dart';
 import '../../movies/presentation/movie_detail_screen.dart';
 import '../../movies/presentation/movie_search_screen.dart';
+import '../../movies/presentation/my_movies_screen.dart';
+import '../data/ranking_repository.dart';
 import '../data/timeline_repository.dart';
+import '../domain/top_movie.dart';
 import '../domain/watch_entry.dart';
 
 class GroupTimelineScreen extends StatefulWidget {
@@ -19,16 +23,22 @@ class GroupTimelineScreen extends StatefulWidget {
 
 class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
   final _repository = TimelineRepository();
+  final _rankingRepository = RankingRepository();
   late Future<List<WatchEntry>> _timelineFuture;
+  late Future<List<TopMovie>> _topMoviesFuture;
 
   @override
   void initState() {
     super.initState();
     _timelineFuture = _repository.fetchTimeline(widget.group.id);
+    _topMoviesFuture = _rankingRepository.fetchTopMovies(widget.group.id);
   }
 
   void _reload() {
-    setState(() => _timelineFuture = _repository.fetchTimeline(widget.group.id));
+    setState(() {
+      _timelineFuture = _repository.fetchTimeline(widget.group.id);
+      _topMoviesFuture = _rankingRepository.fetchTopMovies(widget.group.id);
+    });
   }
 
   Future<void> _openMovieSearch() async {
@@ -41,10 +51,33 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
     _reload();
   }
 
+  void _openMovieDetail(Movie movie) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MovieDetailScreen(movie: movie, groupId: widget.group.id),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.group.name)),
+      appBar: AppBar(
+        title: Text(widget.group.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.grid_view_rounded),
+            tooltip: 'Meus filmes',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MyMoviesScreen(groupId: widget.group.id),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: FutureBuilder<List<WatchEntry>>(
         future: _timelineFuture,
         builder: (context, snapshot) {
@@ -74,6 +107,21 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
           return ListView(
             padding: const EdgeInsets.only(bottom: 8),
             children: [
+              FutureBuilder<List<TopMovie>>(
+                future: _topMoviesFuture,
+                builder: (context, rankingSnapshot) {
+                  final topMovies = rankingSnapshot.data ?? [];
+                  if (topMovies.isEmpty) return const SizedBox.shrink();
+                  return MovieRail(
+                    title: '🏆 Top do grupo',
+                    itemCount: topMovies.length,
+                    posterUrlBuilder: (i) => topMovies[i].posterUrl,
+                    titleBuilder: (i) => topMovies[i].title,
+                    subtitleBuilder: (i) => '★ ${topMovies[i].avgRating.toStringAsFixed(1)}',
+                    onTap: (i) => _openMovieDetail(topMovies[i].toMovie()),
+                  );
+                },
+              ),
               for (final year in years) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -97,15 +145,7 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
                       trailing: entry.emojis.isNotEmpty
                           ? Text(entry.emojis.join(), style: const TextStyle(fontSize: 20))
                           : null,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MovieDetailScreen(
-                            movie: entry.movie,
-                            groupId: widget.group.id,
-                          ),
-                        ),
-                      ),
+                      onTap: () => _openMovieDetail(entry.movie),
                     );
                   }),
               ],

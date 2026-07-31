@@ -13,4 +13,18 @@ class TimelineRepository {
         .map((row) => WatchEntry.fromMap(row as Map<String, dynamic>))
         .toList();
   }
+
+  Future<List<WatchEntry>> fetchMyEntries(String groupId) async {
+    final userId = supabase.auth.currentUser!.id;
+    final rows = await supabase
+        .from('watch_entries')
+        .select('*, movies(*)')
+        .eq('group_id', groupId)
+        .eq('logged_by', userId)
+        .order('watched_at', ascending: false);
+
+    return (rows as List)
+        .map((row) => WatchEntry.fromMap(row as Map<String, dynamic>))
+        .toList();
+  }
 }
