@@ -11,6 +11,7 @@ import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
 import 'discovery_actions.dart';
+import 'story_share_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
   final int tmdbId;
@@ -23,6 +24,7 @@ class MovieDetailScreen extends StatefulWidget {
   // and a "Registrar" button lets the user pick a group on the spot.
   final String? groupId;
   final String? cachedMovieId;
+  final String? groupName;
 
   const MovieDetailScreen({
     super.key,
@@ -32,12 +34,14 @@ class MovieDetailScreen extends StatefulWidget {
     this.posterUrl,
     this.groupId,
     this.cachedMovieId,
+    this.groupName,
   });
 
   factory MovieDetailScreen.forGroup({
     Key? key,
     required Movie movie,
     required String groupId,
+    required String groupName,
   }) {
     return MovieDetailScreen(
       key: key,
@@ -47,6 +51,7 @@ class MovieDetailScreen extends StatefulWidget {
       posterUrl: movie.posterUrl,
       groupId: groupId,
       cachedMovieId: movie.id,
+      groupName: groupName,
     );
   }
 
@@ -355,9 +360,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                             .map((e) => (e['rating'] as num?)?.toDouble())
                             .whereType<double>()
                             .toList();
-                        final groupAvg = ratings.isEmpty
-                            ? null
-                            : ratings.reduce((a, b) => a + b) / ratings.length;
+                        final groupMedian = medianRating(ratings);
                         final yourRatings = entries
                             .where((e) => e['logged_by'] == userId)
                             .map((e) => (e['rating'] as num?)?.toDouble())
@@ -376,10 +379,29 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                                   _RatingChip(label: 'Sua nota', value: yourAvg),
                                   const SizedBox(width: 10),
                                 ],
-                                if (groupAvg != null)
-                                  _RatingChip(label: 'Nota do grupo', value: groupAvg),
+                                if (groupMedian != null)
+                                  _RatingChip(label: 'Mediana do grupo', value: groupMedian),
                               ],
                             ),
+                            if (yourAvg != null && widget.groupName != null) ...[
+                              const SizedBox(height: 14),
+                              OutlinedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => StoryShareScreen(
+                                      movieTitle: details.title,
+                                      posterUrl: details.posterUrl,
+                                      myRating: yourAvg,
+                                      groupMedianRating: groupMedian,
+                                      groupName: widget.groupName!,
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.ios_share),
+                                label: const Text('Compartilhar no Story'),
+                              ),
+                            ],
                             const SizedBox(height: 16),
                             for (final entry in entries)
                               Padding(

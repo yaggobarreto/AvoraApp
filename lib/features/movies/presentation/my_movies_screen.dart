@@ -18,8 +18,9 @@ const _sortLabels = {
 
 class MyMoviesScreen extends StatefulWidget {
   final String groupId;
+  final String groupName;
 
-  const MyMoviesScreen({super.key, required this.groupId});
+  const MyMoviesScreen({super.key, required this.groupId, required this.groupName});
 
   @override
   State<MyMoviesScreen> createState() => _MyMoviesScreenState();
@@ -224,7 +225,11 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MovieDetailScreen.forGroup(movie: entry.movie, groupId: widget.groupId),
+        builder: (_) => MovieDetailScreen.forGroup(
+          movie: entry.movie,
+          groupId: widget.groupId,
+          groupName: widget.groupName,
+        ),
       ),
     );
   }

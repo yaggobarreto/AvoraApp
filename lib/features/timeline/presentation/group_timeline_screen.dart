@@ -72,7 +72,11 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MovieDetailScreen.forGroup(movie: movie, groupId: widget.group.id),
+        builder: (_) => MovieDetailScreen.forGroup(
+          movie: movie,
+          groupId: widget.group.id,
+          groupName: widget.group.name,
+        ),
       ),
     );
   }
@@ -124,7 +128,10 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => MyMoviesScreen(groupId: widget.group.id),
+                builder: (_) => MyMoviesScreen(
+                  groupId: widget.group.id,
+                  groupName: widget.group.name,
+                ),
               ),
             ),
           ),
