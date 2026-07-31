@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/movie_rail.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../groups/domain/group.dart';
+import '../../groups/presentation/invite_screen.dart';
 import '../../movies/data/tmdb_repository.dart';
 import '../../movies/data/watch_entries_repository.dart';
 import '../../movies/domain/movie.dart';
@@ -97,6 +98,16 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
       appBar: AppBar(
         title: Text(widget.group.name),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1_outlined),
+            tooltip: 'Convidar',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InviteScreen(group: widget.group),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.event_available_outlined),
             tooltip: 'Planejador',

@@ -41,7 +41,7 @@ class _GroupListScreenState extends State<GroupListScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Código de convite'),
+          decoration: const InputDecoration(hintText: 'Código ou link de convite'),
         ),
         actions: [
           TextButton(
@@ -57,7 +57,7 @@ class _GroupListScreenState extends State<GroupListScreen> {
     );
 
     if (code != null && code.isNotEmpty) {
-      await _repository.joinGroupByInviteCode(code);
+      await _repository.joinGroupByInviteCode(extractInviteCode(code));
       _reload();
     }
   }

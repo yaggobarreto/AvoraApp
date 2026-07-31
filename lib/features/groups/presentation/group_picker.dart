@@ -3,6 +3,17 @@ import 'package:flutter/material.dart';
 import '../data/groups_repository.dart';
 import '../domain/group.dart';
 
+/// Accepts either a raw invite code or a full invite link (pasted from a
+/// share/QR flow) and returns just the code.
+String extractInviteCode(String input) {
+  final trimmed = input.trim();
+  final uri = Uri.tryParse(trimmed);
+  if (uri != null && uri.queryParameters.containsKey('join')) {
+    return uri.queryParameters['join']!;
+  }
+  return trimmed;
+}
+
 /// Shared "new group" dialog used both by the Grupos tab and by any
 /// discovery flow (Home rails, movie detail) that needs to create a group
 /// on the spot.
