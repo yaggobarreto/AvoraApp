@@ -27,20 +27,37 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
   bool _isLoggingMovie = false;
   String? _errorMessage;
   Timer? _debounce;
+  int _searchGeneration = 0;
 
   void _onQueryChanged(String query) {
+    setState(() {}); // refresh the clear button's visibility
     _debounce?.cancel();
     if (query.trim().isEmpty) {
-      setState(() => _results = []);
+      _searchGeneration++; // invalidate any in-flight search's result
+      setState(() {
+        _results = [];
+        _isSearching = false;
+      });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 400), _search);
+    _debounce = Timer(const Duration(milliseconds: 250), _search);
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchGeneration++;
+    _searchController.clear();
+    setState(() {
+      _results = [];
+      _isSearching = false;
+    });
   }
 
   Future<void> _search() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
+    final generation = ++_searchGeneration;
     setState(() {
       _isSearching = true;
       _errorMessage = null;
@@ -48,11 +65,17 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
 
     try {
       final results = await _tmdbRepository.search(query);
-      if (mounted) setState(() => _results = results);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _results = results);
+      }
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _errorMessage = e.toString());
+      }
     } finally {
-      if (mounted) setState(() => _isSearching = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _isSearching = false);
+      }
     }
   }
 
@@ -99,9 +122,14 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Ex: Interestelar',
-                suffixIcon: Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? const Icon(Icons.search)
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: _clearSearch,
+                      ),
               ),
               onChanged: _onQueryChanged,
               onSubmitted: (_) => _search(),
