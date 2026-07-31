@@ -18,14 +18,14 @@ class GradientButton extends StatelessWidget {
       opacity: disabled ? 0.5 : 1,
       child: Container(
         height: 48,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: AppTheme.primaryGradient,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.all(Radius.circular(24)),
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(24),
             onTap: onPressed,
             child: Center(
               child: DefaultTextStyle.merge(

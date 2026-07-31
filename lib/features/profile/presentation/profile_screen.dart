@@ -83,7 +83,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               margin: const EdgeInsets.all(24),
               padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
               decoration: BoxDecoration(
-                color: AppTheme.cardSurface,
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -101,7 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 profile.name.substring(0, 1).toUpperCase(),
                                 style: const TextStyle(
                                   fontSize: 28,
-                                  color: AppTheme.cardOnSurface,
+                                  color: AppTheme.onSurface,
                                 ),
                               )
                             : null,
@@ -142,13 +142,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.cardOnSurface,
+                      color: AppTheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${profile.moviesWatched} filmes registrados',
-                    style: const TextStyle(color: AppTheme.cardOnSurface),
+                    style: const TextStyle(color: AppTheme.onSurface),
                   ),
                 ],
               ),

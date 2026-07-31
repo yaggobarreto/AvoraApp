@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardSurface,
+                      color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
@@ -93,7 +93,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (_isSignUp) ...[
                           TextFormField(
                             controller: _nameController,
-                            style: const TextStyle(color: AppTheme.cardOnSurface),
                             decoration: const InputDecoration(labelText: 'Nome'),
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Informe seu nome'
@@ -104,7 +103,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(color: AppTheme.cardOnSurface),
                           decoration: const InputDecoration(labelText: 'Email'),
                           validator: (v) =>
                               (v == null || !v.contains('@')) ? 'Email inválido' : null,
@@ -113,7 +111,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
-                          style: const TextStyle(color: AppTheme.cardOnSurface),
                           decoration: const InputDecoration(labelText: 'Senha'),
                           validator: (v) => (v == null || v.length < 6)
                               ? 'Mínimo de 6 caracteres'

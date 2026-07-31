@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/poster_card.dart';
 import '../../groups/domain/group.dart';
 import '../../movies/domain/movie.dart';
 import '../../movies/presentation/movie_search_screen.dart';
@@ -84,30 +85,19 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
                   ),
                 ),
                 for (final entry in entriesByYear[year]!)
-                  Card(
-                    child: ListTile(
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: entry.movie.posterUrl != null
-                            ? Image.network(
-                                entry.movie.posterUrl!,
-                                width: 40,
-                                fit: BoxFit.cover,
-                              )
-                            : const Icon(Icons.movie),
-                      ),
-                      title: Text('🎬 ${entry.movie.title}'),
-                      subtitle: Builder(builder: (context) {
-                        final stars = (entry.rating ?? 0).round().clamp(0, 5);
-                        return Text(
-                          '${'★' * stars}${'☆' * (5 - stars)} '
+                  Builder(builder: (context) {
+                    final stars = (entry.rating ?? 0).round().clamp(0, 5);
+                    return PosterCard(
+                      imageUrl: entry.movie.backdropUrl ?? entry.movie.posterUrl,
+                      title: entry.movie.title,
+                      subtitle: '${'★' * stars}${'☆' * (5 - stars)} '
                           '· ${watchLocationLabels[entry.watchLocation]}'
                           '${entry.timesWatched > 1 ? ' · Assistido ${entry.timesWatched}x' : ''}',
-                        );
-                      }),
-                      trailing: entry.emojis.isNotEmpty ? Text(entry.emojis.join()) : null,
-                    ),
-                  ),
+                      trailing: entry.emojis.isNotEmpty
+                          ? Text(entry.emojis.join(), style: const TextStyle(fontSize: 20))
+                          : null,
+                    );
+                  }),
               ],
             ],
           );
