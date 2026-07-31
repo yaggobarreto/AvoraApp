@@ -4,7 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/supabase_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../groups/presentation/group_picker.dart';
 import '../../planner/data/planner_repository.dart';
+import '../../planner/presentation/schedule_session_dialog.dart';
 import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
@@ -86,6 +88,45 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         tmdbId: widget.tmdbId,
         mediaType: widget.mediaType,
         title: widget.title,
+      );
+    }
+  }
+
+  Future<void> _scheduleSession() async {
+    String groupId;
+    String movieDbId;
+
+    if (_hasGroupContext) {
+      groupId = widget.groupId!;
+      movieDbId = widget.cachedMovieId!;
+    } else {
+      final selectedGroup = await pickOrCreateGroup(
+        context,
+        purposeMessage: 'Crie um grupo para agendar "${widget.title}".',
+      );
+      if (selectedGroup == null || !mounted) return;
+
+      final movie = await _watchEntriesRepository.cacheMovieFromTmdb(
+        widget.tmdbId,
+        mediaType: widget.mediaType,
+      );
+      if (!mounted) return;
+      groupId = selectedGroup.id;
+      movieDbId = movie.id;
+    }
+
+    final movie = Movie(
+      id: movieDbId,
+      tmdbId: widget.tmdbId,
+      mediaType: widget.mediaType,
+      title: widget.title,
+      posterUrl: widget.posterUrl,
+    );
+
+    final scheduled = await showScheduleSessionDialog(context, groupId: groupId, movie: movie);
+    if (scheduled && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sessão agendada! Veja no Planejador do grupo.')),
       );
     }
   }
@@ -282,6 +323,15 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                           ),
                         ],
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _scheduleSession,
+                        icon: const Icon(Icons.event_available_outlined),
+                        label: const Text('Agendar sessão'),
+                      ),
                     ),
                     if (_hasGroupContext) ...[
                       const SizedBox(height: 24),

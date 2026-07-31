@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/movie_rail.dart';
 import '../../movies/data/tmdb_repository.dart';
 import '../../movies/data/watch_entries_repository.dart';
@@ -44,8 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (seed == null) return null;
 
     final items = await _tmdbRepository.recommendationsFor(seed.tmdbId, seed.mediaType);
-    if (items.isEmpty) return null;
-
     return _Recommendations(seedTitle: seed.title, items: items);
   }
 
@@ -98,10 +97,27 @@ class _HomeScreenState extends State<HomeScreen> {
           FutureBuilder<_Recommendations?>(
             future: _recommendationsFuture,
             builder: (context, snapshot) {
-              final recommendations = snapshot.data;
-              if (recommendations == null || recommendations.items.isEmpty) {
+              if (snapshot.connectionState != ConnectionState.done) {
                 return const SizedBox.shrink();
               }
+              final recommendations = snapshot.data;
+              if (recommendations == null) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Recomendado', style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Avalie um filme ou série para receber recomendações personalizadas.',
+                        style: TextStyle(color: AppTheme.onSurfaceMuted),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (recommendations.items.isEmpty) return const SizedBox.shrink();
               final items = recommendations.items;
               return MovieRail(
                 title: 'Recomendado porque você gostou de ${recommendations.seedTitle}',
