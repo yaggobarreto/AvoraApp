@@ -10,6 +10,7 @@ import '../../movies/presentation/log_watch_sheet.dart';
 import '../../movies/presentation/movie_detail_screen.dart';
 import '../../movies/presentation/movie_search_screen.dart';
 import '../../movies/presentation/my_movies_screen.dart';
+import '../../planner/presentation/planner_screen.dart';
 import '../data/ranking_repository.dart';
 import '../data/timeline_repository.dart';
 import '../domain/top_movie.dart';
@@ -97,6 +98,16 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
         title: Text(widget.group.name),
         actions: [
           IconButton(
+            icon: const Icon(Icons.event_available_outlined),
+            tooltip: 'Planejador',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PlannerScreen(groupId: widget.group.id),
+              ),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.grid_view_rounded),
             tooltip: 'Meus filmes',
             onPressed: () => Navigator.push(
@@ -158,7 +169,7 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
                   final recommendations = recSnapshot.data ?? [];
                   if (recommendations.isEmpty) return const SizedBox.shrink();
                   return MovieRail(
-                    title: '🎯 Recomendado pro grupo',
+                    title: 'Recomendado pro grupo',
                     itemCount: recommendations.length,
                     posterUrlBuilder: (i) => recommendations[i].posterUrl,
                     titleBuilder: (i) => recommendations[i].title,

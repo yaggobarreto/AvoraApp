@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/supabase_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../planner/data/planner_repository.dart';
 import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
@@ -70,6 +71,23 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             widget.cachedMovieId!,
           )
         : Future.value(const []);
+  }
+
+  Future<void> _addToWatchlist() async {
+    if (_hasGroupContext) {
+      await PlannerRepository().addToWatchlist(widget.groupId!, widget.cachedMovieId!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adicionado à lista "Assistir Depois".')),
+      );
+    } else {
+      await addDiscoveryItemToWatchlist(
+        context,
+        tmdbId: widget.tmdbId,
+        mediaType: widget.mediaType,
+        title: widget.title,
+      );
+    }
   }
 
   @override
@@ -238,25 +256,37 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                         ),
                       ),
                     ],
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _addToWatchlist,
+                            icon: const Icon(Icons.bookmark_add_outlined),
+                            label: const Text('Assistir depois'),
+                          ),
+                        ),
+                        if (!_hasGroupContext) ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => registerDiscoveryItem(
+                                context,
+                                tmdbId: widget.tmdbId,
+                                mediaType: widget.mediaType,
+                                title: widget.title,
+                              ),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Registrar'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     if (_hasGroupContext) ...[
                       const SizedBox(height: 24),
                       Text('Avaliações do grupo', style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 10),
-                    ] else ...[
-                      const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () => registerDiscoveryItem(
-                            context,
-                            tmdbId: widget.tmdbId,
-                            mediaType: widget.mediaType,
-                            title: widget.title,
-                          ),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Registrar em um grupo'),
-                        ),
-                      ),
                     ],
                     if (_hasGroupContext)
                     FutureBuilder<List<Map<String, dynamic>>>(

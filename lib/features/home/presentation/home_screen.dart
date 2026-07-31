@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               final items = recommendations.items;
               return MovieRail(
-                title: '🎯 Recomendado porque você gostou de ${recommendations.seedTitle}',
+                title: 'Recomendado porque você gostou de ${recommendations.seedTitle}',
                 itemCount: items.length,
                 posterUrlBuilder: (i) => items[i].posterUrl,
                 titleBuilder: (i) => items[i].title,
