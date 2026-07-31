@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../groups/domain/group.dart';
 import '../../movies/domain/movie.dart';
+import '../../movies/presentation/movie_detail_screen.dart';
 import '../../movies/presentation/movie_search_screen.dart';
 import '../data/timeline_repository.dart';
 import '../domain/watch_entry.dart';
@@ -96,6 +97,15 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
                       trailing: entry.emojis.isNotEmpty
                           ? Text(entry.emojis.join(), style: const TextStyle(fontSize: 20))
                           : null,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailScreen(
+                            movie: entry.movie,
+                            groupId: widget.group.id,
+                          ),
+                        ),
+                      ),
                     );
                   }),
               ],

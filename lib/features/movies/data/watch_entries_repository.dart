@@ -6,48 +6,26 @@ class WatchEntriesRepository {
   final _tmdbRepository = TmdbRepository();
 
   /// Fetches full details from TMDB and caches them in the local `movies`
-  /// table (upsert on tmdb_id) so later joins/timeline reads don't need TMDB.
-  Future<Movie> cacheMovieFromTmdb(int tmdbId) async {
-    final details = await _tmdbRepository.movieDetails(tmdbId);
-
-    final crew = (details['credits']?['crew'] as List?) ?? [];
-    final director = crew.cast<Map<String, dynamic>>().firstWhere(
-          (member) => member['job'] == 'Director',
-          orElse: () => const {},
-        )['name'] as String?;
-
-    final videos = (details['videos']?['results'] as List?) ?? [];
-    final trailer = videos.cast<Map<String, dynamic>>().firstWhere(
-          (video) => video['type'] == 'Trailer' && video['site'] == 'YouTube',
-          orElse: () => const {},
-        )['key'] as String?;
-
-    final releaseDate = details['release_date'] as String?;
+  /// table (upsert on tmdb_id + media_type) so later joins/timeline reads
+  /// don't need TMDB.
+  Future<Movie> cacheMovieFromTmdb(int tmdbId, {String mediaType = 'movie'}) async {
+    final details = await _tmdbRepository.movieDetails(tmdbId, mediaType: mediaType);
 
     final row = await supabase
         .from('movies')
         .upsert({
-          'tmdb_id': details['id'],
-          'title': details['title'],
-          'year': (releaseDate != null && releaseDate.isNotEmpty)
-              ? int.tryParse(releaseDate.substring(0, 4))
-              : null,
-          'poster_url': details['poster_path'] != null
-              ? 'https://image.tmdb.org/t/p/w342${details['poster_path']}'
-              : null,
-          'backdrop_url': details['backdrop_path'] != null
-              ? 'https://image.tmdb.org/t/p/w780${details['backdrop_path']}'
-              : null,
-          'synopsis': details['overview'],
-          'runtime_minutes': details['runtime'],
-          'genres': ((details['genres'] as List?) ?? [])
-              .map((g) => g['name'] as String)
-              .toList(),
-          'director': director,
-          'trailer_url': trailer != null
-              ? 'https://www.youtube.com/watch?v=$trailer'
-              : null,
-        }, onConflict: 'tmdb_id')
+          'tmdb_id': details.tmdbId,
+          'media_type': details.mediaType,
+          'title': details.title,
+          'year': details.year,
+          'poster_url': details.posterUrl,
+          'backdrop_url': details.backdropUrl,
+          'synopsis': details.synopsis,
+          'runtime_minutes': details.runtimeMinutes,
+          'genres': details.genres,
+          'director': details.director,
+          'trailer_url': details.trailerUrl,
+        }, onConflict: 'tmdb_id,media_type')
         .select()
         .single();
 
@@ -89,5 +67,22 @@ class WatchEntriesRepository {
           {'watch_entry_id': entryRow['id'], 'user_id': participantId},
       ]);
     }
+  }
+
+  /// All watch entries logged for this movie within this group, newest
+  /// first, with the logger's name — used to show "sua nota", the group's
+  /// average, and friends' individual ratings on the movie detail page.
+  Future<List<Map<String, dynamic>>> fetchEntriesForMovieInGroup(
+    String groupId,
+    String movieId,
+  ) async {
+    final rows = await supabase
+        .from('watch_entries')
+        .select('*, profiles!watch_entries_logged_by_fkey(name)')
+        .eq('group_id', groupId)
+        .eq('movie_id', movieId)
+        .order('watched_at', ascending: false);
+
+    return (rows as List).cast<Map<String, dynamic>>();
   }
 }

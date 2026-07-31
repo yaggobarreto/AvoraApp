@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/poster_card.dart';
@@ -24,6 +26,16 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
   bool _isSearching = false;
   bool _isLoggingMovie = false;
   String? _errorMessage;
+  Timer? _debounce;
+
+  void _onQueryChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 400), _search);
+  }
 
   Future<void> _search() async {
     final query = _searchController.text.trim();
@@ -36,9 +48,9 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
 
     try {
       final results = await _tmdbRepository.search(query);
-      setState(() => _results = results);
+      if (mounted) setState(() => _results = results);
     } catch (e) {
-      setState(() => _errorMessage = e.toString());
+      if (mounted) setState(() => _errorMessage = e.toString());
     } finally {
       if (mounted) setState(() => _isSearching = false);
     }
@@ -47,7 +59,10 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
   Future<void> _selectMovie(TmdbSearchResult result) async {
     setState(() => _isLoggingMovie = true);
     try {
-      final movie = await _watchEntriesRepository.cacheMovieFromTmdb(result.tmdbId);
+      final movie = await _watchEntriesRepository.cacheMovieFromTmdb(
+        result.tmdbId,
+        mediaType: result.mediaType,
+      );
       if (!mounted) return;
 
       final saved = await showModalBottomSheet<bool>(
@@ -58,7 +73,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
 
       if (saved == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Filme registrado!')),
+          const SnackBar(content: Text('Registrado!')),
         );
         Navigator.of(context).pop();
       }
@@ -69,6 +84,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -76,20 +92,18 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cadastrar filme')),
+      appBar: AppBar(title: const Text('Cadastrar filme ou série')),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Ex: Interestelar',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: _search,
-                ),
+                suffixIcon: Icon(Icons.search),
               ),
+              onChanged: _onQueryChanged,
               onSubmitted: (_) => _search(),
             ),
           ),
@@ -115,11 +129,26 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
                       title: result.title,
                       subtitle: result.year?.toString(),
                       height: 110,
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          result.mediaType == 'tv' ? 'Série' : 'Filme',
+                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                        ),
+                      ),
                       onTap: _isLoggingMovie ? null : () => _selectMovie(result),
                     );
                   },
                 ),
-                if (_isLoggingMovie) const Center(child: CircularProgressIndicator()),
+                if (_isLoggingMovie)
+                  const ColoredBox(
+                    color: Colors.black45,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
               ],
             ),
           ),

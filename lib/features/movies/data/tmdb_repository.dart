@@ -17,11 +17,11 @@ class TmdbRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> movieDetails(int tmdbId) async {
+  Future<MovieDetails> movieDetails(int tmdbId, {String mediaType = 'movie'}) async {
     final response = await supabase.functions.invoke(
       'tmdb-movie-details',
-      queryParameters: {'tmdb_id': '$tmdbId'},
+      queryParameters: {'tmdb_id': '$tmdbId', 'media_type': mediaType},
     );
-    return response.data as Map<String, dynamic>;
+    return MovieDetails.fromTmdbJson(response.data as Map<String, dynamic>);
   }
 }

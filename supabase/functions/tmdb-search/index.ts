@@ -1,5 +1,5 @@
-// Proxies TMDB movie search so the API key never ships inside the Flutter app.
-// Expects: GET /tmdb-search?query=interestelar
+// Proxies TMDB multi-search (movies + TV) so the API key never ships inside
+// the Flutter app. Expects: GET /tmdb-search?query=interestelar
 import { corsHeaders } from "../_shared/cors.ts";
 
 const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const tmdbUrl = `${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&language=pt-BR&include_adult=false`;
+  const tmdbUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}&language=pt-BR&include_adult=false`;
 
   const tmdbResponse = await fetch(tmdbUrl, {
     headers: {
@@ -30,6 +30,15 @@ Deno.serve(async (req) => {
   });
 
   const data = await tmdbResponse.json();
+
+  // Multi-search also returns "person" results (actors/directors) — this app
+  // only cares about movies and TV shows.
+  if (Array.isArray(data.results)) {
+    data.results = data.results.filter(
+      (item: { media_type?: string }) =>
+        item.media_type === "movie" || item.media_type === "tv",
+    );
+  }
 
   return new Response(JSON.stringify(data), {
     status: tmdbResponse.status,
