@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/movie_rail.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../groups/domain/group.dart';
+import '../../movies/data/tmdb_repository.dart';
+import '../../movies/data/watch_entries_repository.dart';
 import '../../movies/domain/movie.dart';
+import '../../movies/presentation/log_watch_sheet.dart';
 import '../../movies/presentation/movie_detail_screen.dart';
 import '../../movies/presentation/movie_search_screen.dart';
 import '../../movies/presentation/my_movies_screen.dart';
@@ -24,20 +27,32 @@ class GroupTimelineScreen extends StatefulWidget {
 class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
   final _repository = TimelineRepository();
   final _rankingRepository = RankingRepository();
+  final _tmdbRepository = TmdbRepository();
   late Future<List<WatchEntry>> _timelineFuture;
   late Future<List<TopMovie>> _topMoviesFuture;
+  late Future<List<TmdbSearchResult>?> _recommendationsFuture;
 
   @override
   void initState() {
     super.initState();
     _timelineFuture = _repository.fetchTimeline(widget.group.id);
     _topMoviesFuture = _rankingRepository.fetchTopMovies(widget.group.id);
+    _recommendationsFuture = _loadRecommendations();
+  }
+
+  Future<List<TmdbSearchResult>?> _loadRecommendations() async {
+    final topMovies = await _topMoviesFuture;
+    if (topMovies.isEmpty) return null;
+    final seed = topMovies.first;
+    final items = await _tmdbRepository.recommendationsFor(seed.tmdbId, seed.mediaType);
+    return items.isEmpty ? null : items;
   }
 
   void _reload() {
     setState(() {
       _timelineFuture = _repository.fetchTimeline(widget.group.id);
       _topMoviesFuture = _rankingRepository.fetchTopMovies(widget.group.id);
+      _recommendationsFuture = _loadRecommendations();
     });
   }
 
@@ -55,9 +70,24 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MovieDetailScreen(movie: movie, groupId: widget.group.id),
+        builder: (_) => MovieDetailScreen.forGroup(movie: movie, groupId: widget.group.id),
       ),
     );
+  }
+
+  Future<void> _selectRecommendation(TmdbSearchResult result) async {
+    final movie = await WatchEntriesRepository().cacheMovieFromTmdb(
+      result.tmdbId,
+      mediaType: result.mediaType,
+    );
+    if (!mounted) return;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => LogWatchSheet(groupId: widget.group.id, movie: movie),
+    );
+    if (saved == true) _reload();
   }
 
   @override
@@ -119,6 +149,22 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
                     titleBuilder: (i) => topMovies[i].title,
                     subtitleBuilder: (i) => '★ ${topMovies[i].avgRating.toStringAsFixed(1)}',
                     onTap: (i) => _openMovieDetail(topMovies[i].toMovie()),
+                  );
+                },
+              ),
+              FutureBuilder<List<TmdbSearchResult>?>(
+                future: _recommendationsFuture,
+                builder: (context, recSnapshot) {
+                  final recommendations = recSnapshot.data ?? [];
+                  if (recommendations.isEmpty) return const SizedBox.shrink();
+                  return MovieRail(
+                    title: '🎯 Recomendado pro grupo',
+                    itemCount: recommendations.length,
+                    posterUrlBuilder: (i) => recommendations[i].posterUrl,
+                    titleBuilder: (i) => recommendations[i].title,
+                    subtitleBuilder: (i) =>
+                        recommendations[i].mediaType == 'tv' ? 'Série' : 'Filme',
+                    onTap: (i) => _selectRecommendation(recommendations[i]),
                   );
                 },
               ),

@@ -224,7 +224,7 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MovieDetailScreen(movie: entry.movie, groupId: widget.groupId),
+        builder: (_) => MovieDetailScreen.forGroup(movie: entry.movie, groupId: widget.groupId),
       ),
     );
   }

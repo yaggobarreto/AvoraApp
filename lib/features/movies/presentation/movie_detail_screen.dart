@@ -7,12 +7,45 @@ import '../../../core/theme/app_theme.dart';
 import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
+import 'discovery_actions.dart';
 
 class MovieDetailScreen extends StatefulWidget {
-  final Movie movie;
-  final String groupId;
+  final int tmdbId;
+  final String mediaType;
+  final String title;
+  final String? posterUrl;
+  // Set together: groupId is the group whose ratings to show, cachedMovieId
+  // is our own movies.id needed to query them. Both null means this is a
+  // Home-tab discovery view with no group context yet — ratings are hidden
+  // and a "Registrar" button lets the user pick a group on the spot.
+  final String? groupId;
+  final String? cachedMovieId;
 
-  const MovieDetailScreen({super.key, required this.movie, required this.groupId});
+  const MovieDetailScreen({
+    super.key,
+    required this.tmdbId,
+    required this.mediaType,
+    required this.title,
+    this.posterUrl,
+    this.groupId,
+    this.cachedMovieId,
+  });
+
+  factory MovieDetailScreen.forGroup({
+    Key? key,
+    required Movie movie,
+    required String groupId,
+  }) {
+    return MovieDetailScreen(
+      key: key,
+      tmdbId: movie.tmdbId,
+      mediaType: movie.mediaType,
+      title: movie.title,
+      posterUrl: movie.posterUrl,
+      groupId: groupId,
+      cachedMovieId: movie.id,
+    );
+  }
 
   @override
   State<MovieDetailScreen> createState() => _MovieDetailScreenState();
@@ -25,17 +58,18 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   late Future<MovieDetails> _detailsFuture;
   late Future<List<Map<String, dynamic>>> _entriesFuture;
 
+  bool get _hasGroupContext => widget.groupId != null && widget.cachedMovieId != null;
+
   @override
   void initState() {
     super.initState();
-    _detailsFuture = _tmdbRepository.movieDetails(
-      widget.movie.tmdbId,
-      mediaType: widget.movie.mediaType,
-    );
-    _entriesFuture = _watchEntriesRepository.fetchEntriesForMovieInGroup(
-      widget.groupId,
-      widget.movie.id,
-    );
+    _detailsFuture = _tmdbRepository.movieDetails(widget.tmdbId, mediaType: widget.mediaType);
+    _entriesFuture = _hasGroupContext
+        ? _watchEntriesRepository.fetchEntriesForMovieInGroup(
+            widget.groupId!,
+            widget.cachedMovieId!,
+          )
+        : Future.value(const []);
   }
 
   @override
@@ -204,9 +238,27 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 24),
-                    Text('Avaliações do grupo', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 10),
+                    if (_hasGroupContext) ...[
+                      const SizedBox(height: 24),
+                      Text('Avaliações do grupo', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 10),
+                    ] else ...[
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () => registerDiscoveryItem(
+                            context,
+                            tmdbId: widget.tmdbId,
+                            mediaType: widget.mediaType,
+                            title: widget.title,
+                          ),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Registrar em um grupo'),
+                        ),
+                      ),
+                    ],
+                    if (_hasGroupContext)
                     FutureBuilder<List<Map<String, dynamic>>>(
                       future: _entriesFuture,
                       builder: (context, entrySnapshot) {

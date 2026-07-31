@@ -4,6 +4,7 @@ import '../../../core/network/supabase_config.dart';
 import '../data/groups_repository.dart';
 import '../domain/group.dart';
 import '../../timeline/presentation/group_timeline_screen.dart';
+import 'group_picker.dart';
 
 class GroupListScreen extends StatefulWidget {
   const GroupListScreen({super.key});
@@ -27,33 +28,8 @@ class _GroupListScreenState extends State<GroupListScreen> {
   }
 
   Future<void> _showCreateGroupDialog() async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Novo grupo'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Ex: Eu ❤️ Minha Namorada'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Criar'),
-          ),
-        ],
-      ),
-    );
-
-    if (name != null && name.isNotEmpty) {
-      await _repository.createGroup(name);
-      _reload();
-    }
+    final created = await showCreateGroupDialog(context);
+    if (created != null) _reload();
   }
 
   Future<void> _showJoinGroupDialog() async {

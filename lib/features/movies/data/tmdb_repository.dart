@@ -34,4 +34,17 @@ class TmdbRepository {
         .map(TmdbSearchResult.fromTmdbJson)
         .toList();
   }
+
+  Future<List<TmdbSearchResult>> recommendationsFor(int tmdbId, String mediaType) async {
+    final response = await supabase.functions.invoke(
+      'tmdb-recommendations',
+      queryParameters: {'tmdb_id': '$tmdbId', 'media_type': mediaType},
+    );
+
+    final results = (response.data['results'] as List?) ?? [];
+    return results
+        .cast<Map<String, dynamic>>()
+        .map(TmdbSearchResult.fromTmdbJson)
+        .toList();
+  }
 }

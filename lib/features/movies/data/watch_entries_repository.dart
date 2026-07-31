@@ -85,4 +85,22 @@ class WatchEntriesRepository {
 
     return (rows as List).cast<Map<String, dynamic>>();
   }
+
+  /// The current user's single highest-rated title across every group they
+  /// belong to — used as the "seed" for TMDB-powered recommendations
+  /// ("porque você gostou de X") when there's no group context yet.
+  Future<Movie?> fetchMyFavoriteMovie() async {
+    final userId = supabase.auth.currentUser!.id;
+    final rows = await supabase
+        .from('watch_entries')
+        .select('rating, movies(*)')
+        .eq('logged_by', userId)
+        .not('rating', 'is', null)
+        .order('rating', ascending: false)
+        .limit(1);
+
+    final list = rows as List;
+    if (list.isEmpty) return null;
+    return Movie.fromMap(list.first['movies'] as Map<String, dynamic>);
+  }
 }
