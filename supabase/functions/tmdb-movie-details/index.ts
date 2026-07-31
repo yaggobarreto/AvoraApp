@@ -3,42 +3,28 @@
 // selected, and to render the full detail page (streaming availability goes
 // stale, so that page always calls this fresh instead of relying on the cache).
 // Expects: GET /tmdb-movie-details?tmdb_id=157336&media_type=movie
-import { corsHeaders } from "../_shared/cors.ts";
+import {
+  errorResponse,
+  fetchTmdb,
+  jsonResponse,
+  parseMediaType,
+  parseTmdbId,
+  serveTmdb,
+} from "../_shared/tmdb.ts";
 
-const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
+serveTmdb(async (req) => {
   const url = new URL(req.url);
-  const tmdbId = url.searchParams.get("tmdb_id");
-  const mediaType = url.searchParams.get("media_type") === "tv" ? "tv" : "movie";
+  const tmdbId = parseTmdbId(url.searchParams.get("tmdb_id"));
+  const mediaType = parseMediaType(url.searchParams.get("media_type"));
 
-  if (!tmdbId) {
-    return new Response(JSON.stringify({ error: "Missing 'tmdb_id' parameter" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  if (tmdbId === null) {
+    return errorResponse(req, "Invalid 'tmdb_id' parameter", 400);
   }
 
-  const tmdbUrl =
-    `${TMDB_BASE_URL}/${mediaType}/${tmdbId}?language=pt-BR` +
-    `&append_to_response=credits,videos,watch/providers`;
+  const data = await fetchTmdb(
+    `/${mediaType}/${tmdbId}?language=pt-BR` +
+      `&append_to_response=credits,videos,watch/providers`,
+  ) as Record<string, unknown>;
 
-  const tmdbResponse = await fetch(tmdbUrl, {
-    headers: {
-      Authorization: `Bearer ${TMDB_API_KEY}`,
-      accept: "application/json",
-    },
-  });
-
-  const data = await tmdbResponse.json();
-
-  return new Response(JSON.stringify({ ...data, media_type: mediaType }), {
-    status: tmdbResponse.status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return jsonResponse(req, { ...data, media_type: mediaType });
 });

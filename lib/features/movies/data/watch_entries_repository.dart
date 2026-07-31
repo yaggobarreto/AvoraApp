@@ -1,35 +1,21 @@
 import '../../../core/network/supabase_config.dart';
 import '../domain/movie.dart';
-import 'tmdb_repository.dart';
 
 class WatchEntriesRepository {
-  final _tmdbRepository = TmdbRepository();
-
-  /// Fetches full details from TMDB and caches them in the local `movies`
-  /// table (upsert on tmdb_id + media_type) so later joins/timeline reads
-  /// don't need TMDB.
+  /// Caches a title's metadata in the local `movies` table so later
+  /// joins/timeline reads don't need TMDB.
+  ///
+  /// The write happens in the `cache-movie` Edge Function rather than here:
+  /// `movies` is readable by every user, so letting clients write it directly
+  /// allowed poisoning the shared cache, and re-caching a title someone else
+  /// had already saved failed RLS.
   Future<Movie> cacheMovieFromTmdb(int tmdbId, {String mediaType = 'movie'}) async {
-    final details = await _tmdbRepository.movieDetails(tmdbId, mediaType: mediaType);
+    final response = await supabase.functions.invoke(
+      'cache-movie',
+      body: {'tmdb_id': tmdbId, 'media_type': mediaType},
+    );
 
-    final row = await supabase
-        .from('movies')
-        .upsert({
-          'tmdb_id': details.tmdbId,
-          'media_type': details.mediaType,
-          'title': details.title,
-          'year': details.year,
-          'poster_url': details.posterUrl,
-          'backdrop_url': details.backdropUrl,
-          'synopsis': details.synopsis,
-          'runtime_minutes': details.runtimeMinutes,
-          'genres': details.genres,
-          'director': details.director,
-          'trailer_url': details.trailerUrl,
-        }, onConflict: 'tmdb_id,media_type')
-        .select()
-        .single();
-
-    return Movie.fromMap(row);
+    return Movie.fromMap(response.data as Map<String, dynamic>);
   }
 
   Future<void> logWatch({

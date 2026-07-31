@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_config.dart';
+import '../../../core/storage/image_upload.dart';
 
 class RecentRating {
   final String movieTitle;
@@ -141,6 +142,8 @@ class ProfileRepository {
   }
 
   Future<String> uploadAvatar(Uint8List bytes, String fileExtension) async {
+    verifyImageBytes(bytes, fileExtension);
+
     final userId = supabase.auth.currentUser!.id;
     final path = '$userId/avatar.$fileExtension';
 

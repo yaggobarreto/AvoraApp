@@ -1,10 +1,11 @@
-import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/supabase_config.dart';
+import '../../../core/storage/image_upload.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../movies/domain/movie.dart';
 import '../data/profile_repository.dart';
@@ -42,16 +43,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isUploadingAvatar = true);
     try {
       final bytes = await picked.readAsBytes();
-      final extension = picked.name.split('.').last.toLowerCase();
       final newUrl = await _repository.uploadAvatar(
         Uint8List.fromList(bytes),
-        extension == 'jpg' ? 'jpeg' : extension,
+        normalizeImageExtension(picked.name),
       );
       setState(() => _avatarUrlOverride = newUrl);
-    } catch (e) {
+    } on InvalidImageException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao enviar foto: $e')),
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (e) {
+      debugPrint('Avatar upload failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível enviar a foto.')),
         );
       }
     } finally {

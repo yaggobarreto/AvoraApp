@@ -18,6 +18,29 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Avora — diário compartilhado de filmes assistidos em grupo.">
 
+  <!--
+    Security headers. These meta tags are a baseline that travels with the
+    build; the ones that can only be sent over HTTP (Strict-Transport-Security,
+    X-Frame-Options, Permissions-Policy) must also be configured on whatever
+    serves these files in production — see docs/SECURITY.md.
+
+    'wasm-unsafe-eval' is required by Flutter Web's CanvasKit/skwasm runtime.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'wasm-unsafe-eval';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob: https://image.tmdb.org https://*.supabase.co http://127.0.0.1:54321 http://localhost:54321;
+    font-src 'self' data:;
+    connect-src 'self' https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 ws://127.0.0.1:54321 http://localhost:54321;
+    frame-ancestors 'none';
+    base-uri 'self';
+    form-action 'self';
+    object-src 'none';
+  ">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
