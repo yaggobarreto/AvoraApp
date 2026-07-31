@@ -24,4 +24,14 @@ class TmdbRepository {
     );
     return MovieDetails.fromTmdbJson(response.data as Map<String, dynamic>);
   }
+
+  Future<List<TmdbSearchResult>> trending() async {
+    final response = await supabase.functions.invoke('tmdb-trending');
+
+    final results = (response.data['results'] as List?) ?? [];
+    return results
+        .cast<Map<String, dynamic>>()
+        .map(TmdbSearchResult.fromTmdbJson)
+        .toList();
+  }
 }
