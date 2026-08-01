@@ -43,6 +43,8 @@ dependencies:
   url_launcher: ^6.3.2
   qr_flutter: ^4.1.0
   share_plus: ^10.1.4
+  # Used directly by the web-only Turnstile CAPTCHA widget.
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

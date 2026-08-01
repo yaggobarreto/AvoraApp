@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/network/captcha_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/gradient_button.dart';
 import '../data/auth_repository.dart';
+import 'turnstile/turnstile.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +25,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
   String? _infoMessage;
+  String? _captchaToken;
+
+  /// A Turnstile token is single-use. Bumping this rebuilds the widget with a
+  /// fresh challenge, so a sign-up that fails (duplicate email, weak
+  /// password) can be retried instead of dying on a spent token.
+  int _captchaEpoch = 0;
+
+  /// The CAPTCHA only guards account creation — that's what we're protecting
+  /// against automated abuse. Requiring it to sign in would punish real users
+  /// on every visit for no added protection.
+  bool get _needsCaptcha =>
+      _isSignUp && CaptchaConfig.isEnabled && turnstileSupported;
 
   @override
   void dispose() {
@@ -56,6 +70,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_needsCaptcha && _captchaToken == null) {
+      setState(() => _errorMessage = 'Complete a verificação de segurança.');
+      return;
+    }
+
     _setBusy(true);
     try {
       if (_isSignUp) {
@@ -63,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text.trim(),
           _passwordController.text,
           _nameController.text.trim(),
+          captchaToken: _captchaToken,
         );
         if (needsConfirmation && mounted) {
           setState(() => _infoMessage =
@@ -77,7 +97,13 @@ class _LoginScreenState extends State<LoginScreen> {
     } on AuthFailure catch (e) {
       setState(() => _errorMessage = e.message);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _captchaToken = null;
+          _captchaEpoch++;
+        });
+      }
     }
   }
 
@@ -139,6 +165,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           _isSignUp = value;
                           _errorMessage = null;
                           _infoMessage = null;
+                          _captchaToken = null;
+                          _captchaEpoch++;
                         }),
                       ),
                       const SizedBox(height: 22),
@@ -217,6 +245,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           icon: Icons.mark_email_unread_outlined,
                           color: AppTheme.brandTeal,
                         ),
+                      if (_needsCaptcha) ...[
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TurnstileWidget(
+                            key: ValueKey(_captchaEpoch),
+                            onToken: (token) =>
+                                setState(() => _captchaToken = token),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       GradientButton(
                         onPressed: _isLoading ? null : _submit,

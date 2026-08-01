@@ -26,7 +26,7 @@ código. As correções foram reverificadas do mesmo jeito.
 | 11 | Sem rate limiting por usuário | **Média** | ✅ Corrigido |
 | 12 | `search_path` não fixado em funções `security definer` | **Média** | ✅ Corrigido |
 | 13 | MFA não habilitado | **Baixa** | ⚠️ Preparado, não ativado |
-| 14 | Sem proteção anti-bot (CAPTCHA) no cadastro | **Média** | ⚠️ Pendente |
+| 14 | Sem proteção anti-bot (CAPTCHA) no cadastro | **Média** | ⚙️ Implementado, aguarda chaves |
 
 **Bug funcional encontrado junto:** registrar um filme que outro usuário já
 tinha cadastrado falhava com erro de RLS. A correção da vulnerabilidade #2
@@ -336,18 +336,8 @@ Agora usa o código `AV404` e uma mensagem em português.
 
 Estas **não** foram implementadas e exigem decisão ou infraestrutura:
 
-1. **CAPTCHA no cadastro (Média).** É o único bloqueador de segurança que
-   sobra. Sem ele, a criação massiva de contas é trivial. Exige duas partes:
-   - `[auth.captcha]` em `supabase/config.toml` (bloco já preparado,
-     comentado) com um secret real do Turnstile/hCaptcha;
-   - renderizar o widget do provedor na tela de login e passar o token para
-     `AuthRepository.signUpWithEmail(captchaToken: ...)` — **o parâmetro já
-     existe e está plumbado**, falta só a UI.
-
-   > Deixei desabilitado de propósito: ligar o CAPTCHA no servidor sem o app
-   > enviar o token faria **todo** cadastro passar a ser rejeitado.
-
-   Precisa de uma conta no provedor (não dá para eu criar por você).
+1. **CAPTCHA no cadastro (Média).** O código está **pronto dos dois lados** —
+   falta apenas colar as chaves reais. Veja "Como ligar o CAPTCHA" abaixo.
 2. **Headers no servidor (Média).** HSTS, X-Frame-Options e Permissions-Policy
    (ver item 8).
 3. **`ALLOWED_ORIGINS` em produção (Média).** Ver item 6.
@@ -364,6 +354,65 @@ Estas **não** foram implementadas e exigem decisão ou infraestrutura:
 
 ---
 
+## Como ligar o CAPTCHA
+
+O widget (Cloudflare Turnstile) já está implementado e integrado à tela de
+cadastro. Ele fica **inteiramente desligado** enquanto não houver site key, e
+nesse estado o app funciona normalmente — foi assim que ficou entregue.
+
+### As duas chaves
+
+O Turnstile gera um par, e cada uma vai num lugar diferente:
+
+| Chave | Onde vai | Segredo? |
+|---|---|---|
+| **Site key** | No app, via `--dart-define` | Não — ela aparece na página |
+| **Secret key** | No Supabase, que valida o token | **Sim** — nunca no código |
+
+Pegue as duas em `dash.cloudflare.com` → Turnstile → *Add site*. É gratuito e
+não exige que o domínio esteja na Cloudflare.
+
+### Passo a passo
+
+1. **Secret key** — coloque em `supabase/.env` (já está no `.gitignore`):
+   ```
+   SUPABASE_AUTH_CAPTCHA_SECRET=0x4AAAAAAA...
+   ```
+2. Descomente o bloco `[auth.captcha]` em `supabase/config.toml` e reinicie
+   (`supabase stop && supabase start`).
+3. **Site key** — passe na compilação:
+   ```
+   flutter build web --dart-define=TURNSTILE_SITE_KEY=0x4AAAAAAA...
+   ```
+
+> **Ligue os dois juntos.** Só o servidor → todo cadastro é rejeitado
+> (`captcha_failed`). Só o app → o widget aparece mas não protege nada.
+
+### Testando sem conta no provedor
+
+A Cloudflare publica chaves de teste que sempre passam. Usei-as para validar
+o lado do servidor:
+
+- site key: `1x00000000000000000000AA`
+- secret:   `1x0000000000000000000000000000000AA`
+
+Com elas, o cadastro **sem** token foi rejeitado com
+`captcha protection: request disallowed (no captcha_token found)` e **com** o
+token de teste foi aceito — ou seja, a validação server-side funciona.
+
+> Depois do teste, revertí `config.toml` ao estado desabilitado. Não deixe o
+> secret de teste em produção: ele aceita **qualquer** token.
+
+### Comportamento fora da web
+
+O Turnstile é um widget de navegador. No mobile, `turnstileSupported` é
+`false` e o app não exibe nem exige o desafio — então **não ligue o CAPTCHA
+no servidor enquanto houver build mobile em uso**, senão o cadastro pelo
+celular passa a ser rejeitado. Cobrir mobile exige um desafio via webview,
+que ainda não foi feito.
+
+---
+
 ## Veredito
 
 Todas as falhas exploráveis encontradas foram corrigidas e reverificadas
@@ -371,9 +420,9 @@ contra a instância em execução — incluindo as que expunham dados de usuári
 permitiam abusar da nossa chave da TMDB ou deixavam qualquer usuário
 autenticado gerar carga ilimitada.
 
-**Falta um bloqueador para abrir cadastro público: o CAPTCHA** (item 1 das
-pendências). Ele depende de uma conta no provedor e de um widget na tela de
-login; o resto do caminho já está preparado.
+Para abrir cadastro público falta apenas **colar as chaves do CAPTCHA** — o
+código dos dois lados está pronto e a validação server-side foi testada com
+as chaves de teste da Cloudflare (ver "Como ligar o CAPTCHA").
 
 Os itens 2 e 3 (headers no servidor e `ALLOWED_ORIGINS`) são configuração de
 deploy e devem ser feitos no momento da publicação — não exigem mudança de
