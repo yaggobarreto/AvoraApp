@@ -190,6 +190,20 @@ para a tela, podendo expor hostnames, detalhes do driver e stack traces.
 `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`),
 `X-Content-Type-Options: nosniff` e `Referrer-Policy`.
 
+> **Cuidado ao apertar essa CSP.** A primeira versão que escrevi travou o app
+> na splash screen, sem erro visível. O Flutter Web em release baixa o
+> **CanvasKit** de `https://www.gstatic.com/flutter-canvaskit/<engine>/` e a
+> fonte **Roboto** de `https://fonts.gstatic.com`. Bloquear qualquer um dos
+> dois impede o engine de inicializar — e como isso acontece antes do app
+> rodar, não aparece exceção nenhuma no console, só a splash eterna.
+>
+> Por isso a CSP libera `www.gstatic.com` em `script-src`/`connect-src` e
+> `fonts.gstatic.com` em `font-src`/`connect-src`.
+>
+> Para produção, o ideal é compilar com `flutter build web --no-web-resources-cdn`:
+> o CanvasKit passa a ser servido da nossa própria origem e aí dá para
+> remover `www.gstatic.com` da CSP, deixando-a mais fechada.
+
 > **⚠️ Ação necessária em produção.** Alguns headers **só funcionam via HTTP**
 > e precisam ser configurados em quem serve os arquivos (Nginx, Vercel,
 > Firebase Hosting...):
