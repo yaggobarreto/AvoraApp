@@ -35,6 +35,29 @@ class TmdbRepository {
         .toList();
   }
 
+  /// Titles by genre, used to fill the Home before the app has any ratings
+  /// of its own and to seed recommendations from onboarding answers.
+  Future<List<TmdbSearchResult>> discover({
+    List<int> genreIds = const [],
+    String mediaType = 'movie',
+    bool topRated = false,
+  }) async {
+    final response = await supabase.functions.invoke(
+      'tmdb-discover',
+      queryParameters: {
+        'genres': genreIds.join(','),
+        'media_type': mediaType,
+        'sort_by': topRated ? 'top_rated' : 'popular',
+      },
+    );
+
+    final results = (response.data['results'] as List?) ?? [];
+    return results
+        .cast<Map<String, dynamic>>()
+        .map(TmdbSearchResult.fromTmdbJson)
+        .toList();
+  }
+
   Future<List<TmdbSearchResult>> recommendationsFor(int tmdbId, String mediaType) async {
     final response = await supabase.functions.invoke(
       'tmdb-recommendations',
