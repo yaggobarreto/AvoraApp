@@ -68,7 +68,10 @@ export function serveTmdb(
     if (req.method === "OPTIONS") {
       return new Response("ok", { headers: corsHeadersFor(req) });
     }
-    if (req.method !== "GET") {
+    // The Supabase client's invoke() posts by default, so POST has to be
+    // accepted even though these are read-only proxies whose parameters
+    // arrive in the query string.
+    if (req.method !== "GET" && req.method !== "POST") {
       return errorResponse(req, "Method not allowed", 405);
     }
     if (!TMDB_API_KEY) {
