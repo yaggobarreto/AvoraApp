@@ -7,13 +7,10 @@
 // authoritative TMDB data under the service role, closes both.
 //
 // Expects: POST /cache-movie  { "tmdb_id": 157336, "media_type": "movie" }
-import { createClient } from "jsr:@supabase/supabase-js@2";
-
 import { corsHeadersFor } from "../_shared/cors.ts";
+import { adminClient, userIdFrom, withinRateLimit } from "../_shared/rate_limit.ts";
 import { fetchTmdb, parseMediaType, parseTmdbId } from "../_shared/tmdb.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const IMAGE_BASE = "https://image.tmdb.org/t/p";
 
 function json(req: Request, body: unknown, status = 200): Response {
@@ -93,19 +90,22 @@ Deno.serve(async (req) => {
       return json(req, { error: "Invalid 'tmdb_id'" }, 400);
     }
 
-    const userClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userError } = await userClient.auth.getUser();
-    if (userError || !userData.user) {
+    const userId = await userIdFrom(authHeader);
+    if (userId === null) {
       return json(req, { error: "Unauthorized" }, 401);
+    }
+
+    const admin = adminClient();
+    // Tighter than the read-only proxies: this one writes a row every call.
+    const allowed = await withinRateLimit(admin, userId, "cache-movie", 120, 3600);
+    if (!allowed) {
+      return json(req, { error: "Too many requests. Slow down." }, 429);
     }
 
     const details = await fetchTmdb(
       `/${mediaType}/${tmdbId}?language=pt-BR&append_to_response=credits,videos`,
     ) as TmdbPayload;
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const { data, error } = await admin
       .from("movies")
       .upsert(toMovieRow(details, mediaType), { onConflict: "tmdb_id,media_type" })

@@ -26,22 +26,37 @@ class AuthRepository {
 
   bool get isEmailVerified => currentUser?.emailConfirmedAt != null;
 
-  Future<void> signInWithEmail(String email, String password) {
+  Future<void> signInWithEmail(
+    String email,
+    String password, {
+    String? captchaToken,
+  }) {
     return _guard(() => supabase.auth.signInWithPassword(
           email: email,
           password: password,
+          captchaToken: captchaToken,
         ));
   }
 
   /// Returns true when the account still needs email confirmation, so the UI
   /// can tell the user to go check their inbox instead of silently doing
   /// nothing.
-  Future<bool> signUpWithEmail(String email, String password, String name) async {
+  ///
+  /// [captchaToken] is plumbed through for when CAPTCHA is enabled in the
+  /// Supabase project (see docs/SECURITY.md) — until a provider is configured
+  /// the server ignores it.
+  Future<bool> signUpWithEmail(
+    String email,
+    String password,
+    String name, {
+    String? captchaToken,
+  }) async {
     final response = await _guard(() => supabase.auth.signUp(
           email: email,
           password: password,
           data: {'full_name': name},
           emailRedirectTo: _redirectUrl,
+          captchaToken: captchaToken,
         ));
     return response.session == null;
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/network/app_errors.dart';
 import '../../../core/widgets/movie_rail.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../groups/domain/group.dart';
@@ -144,7 +145,7 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Erro: ${snapshot.error}'));
+            return Center(child: Text(friendlyErrorMessage(snapshot.error!)));
           }
 
           final entries = snapshot.data ?? [];

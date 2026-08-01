@@ -23,9 +23,10 @@ código. As correções foram reverificadas do mesmo jeito.
 | 8 | Ausência de headers de segurança HTTP | **Média** | ✅ Corrigido (app) / ⚠️ pendente no host |
 | 9 | Sem validação de faixa/tamanho nos dados gravados | **Média** | ✅ Corrigido |
 | 10 | Logout não invalidava a sessão em outros dispositivos | **Baixa** | ✅ Corrigido |
-| 11 | Rate limiting insuficiente para produção | **Média** | ⚠️ Parcial |
-| 12 | MFA não habilitado | **Baixa** | ⚠️ Preparado, não ativado |
-| 13 | Sem proteção anti-bot (CAPTCHA) no cadastro | **Média** | ⚠️ Pendente |
+| 11 | Sem rate limiting por usuário | **Média** | ✅ Corrigido |
+| 12 | `search_path` não fixado em funções `security definer` | **Média** | ✅ Corrigido |
+| 13 | MFA não habilitado | **Baixa** | ⚠️ Preparado, não ativado |
+| 14 | Sem proteção anti-bot (CAPTCHA) no cadastro | **Média** | ⚠️ Pendente |
 
 **Bug funcional encontrado junto:** registrar um filme que outro usuário já
 tinha cadastrado falhava com erro de RLS. A correção da vulnerabilidade #2
@@ -224,6 +225,72 @@ de aparelho perdido.
 
 ---
 
+## 11. Rate limiting por usuário — **Média**
+
+**Risco.** O Supabase limita os endpoints de autenticação por IP, mas nada
+impedia um usuário **já autenticado** de criar conteúdo em loop: inundar a
+timeline de um grupo, encher a watchlist, criar grupos em massa ou torrar a
+cota da TMDB. RLS responde "você pode?", não "com que frequência?".
+
+**Correção** (`supabase/migrations/20260731070000_rate_limiting.sql`).
+
+Duas estratégias, escolhidas conforme o que existe para contar:
+
+*Conteúdo* — triggers `BEFORE INSERT` contam as linhas recentes do próprio
+usuário na mesma tabela. Não há tabela de contadores para manter em sincronia,
+e apagar uma linha devolve a cota corretamente:
+
+| Ação | Limite |
+|---|---|
+| Registrar filme/série | 60 / hora |
+| Adicionar à watchlist | 100 / hora |
+| Agendar sessão | 30 / hora |
+| Criar grupo | 10 / hora |
+| Entrar em grupo | 20 / hora |
+
+O limite de entrada em grupos importa mais do que parece: o código de convite
+tem só 8 caracteres hexadecimais, e tentativas ilimitadas tornariam viável
+adivinhar um.
+
+*Edge Functions* — não existe uma tabela natural de "chamadas", então essa
+parte é explícita: `rate_limit_events` + a função `consume_rate_limit()`,
+ambas acessíveis **apenas** pela service role (sem policy para
+`authenticated`). Os quatro proxies da TMDB dividem um orçamento de 300/hora
+(o que se protege é a cota da TMDB, não um endpoint específico) e o
+`cache-movie` tem 120/hora por gravar uma linha a cada chamada.
+
+O verificador **falha fechado**: se a consulta der erro, a chamada é negada.
+Um rate limiter que para de limitar quando o banco oscila é o mesmo que não
+ter nenhum.
+
+Erros de limite usam o SQLSTATE próprio `AV429`, para o app distinguir
+throttling de erro de permissão (`lib/core/network/app_errors.dart`).
+
+**Verificado.** A 11ª criação de grupo é bloqueada com a mensagem correta; a
+301ª chamada à TMDB devolve `429`; `rate_limit_events` é invisível para o
+cliente (`permission denied`); e `consume_rate_limit` corta exatamente no
+limite configurado.
+
+---
+
+## 12. `search_path` em funções `security definer` — **Média**
+
+**Risco.** Nenhuma das funções `security definer` fixava `search_path`. Uma
+role capaz de criar objetos em um schema anterior na busca poderia sombrear
+as tabelas referenciadas e fazer a função rodar contra as tabelas dela — com
+privilégios elevados.
+
+**Correção.** Todas as funções passaram a declarar `set search_path`.
+Verificado por consulta ao catálogo: **0** funções `security definer` sem
+`proconfig`.
+
+Aproveitando, `join_group_by_invite_code` foi reescrita: um convite inválido
+levantava `'Invalid invite code'` com o P0001 genérico, indistinguível de
+qualquer outro erro, então o app só conseguia mostrar uma falha genérica.
+Agora usa o código `AV404` e uma mensagem em português.
+
+---
+
 ## Itens verificados e já corretos
 
 - **SQL Injection.** Não há concatenação de SQL em lugar nenhum. Todo acesso
@@ -255,37 +322,48 @@ de aparelho perdido.
 
 Estas **não** foram implementadas e exigem decisão ou infraestrutura:
 
-1. **Rate limiting de aplicação (Média).** O Supabase limita autenticação
-   (`sign_in_sign_ups = 30` / 5 min por IP), mas **não** há limite para
-   criação de avaliações, comentários ou chamadas às Edge Functions. Um
-   usuário autenticado pode gerar carga à vontade. Precisa de rate limiting
-   por usuário nas funções (ex.: tabela de contadores ou Upstash/Redis).
-2. **CAPTCHA no cadastro (Média).** `[auth.captcha]` está desabilitado —
-   habilitar hCaptcha/Turnstile antes de abrir cadastro público, senão a
-   criação massiva de contas fica trivial.
-3. **Headers no servidor (Média).** HSTS, X-Frame-Options e Permissions-Policy
+1. **CAPTCHA no cadastro (Média).** É o único bloqueador de segurança que
+   sobra. Sem ele, a criação massiva de contas é trivial. Exige duas partes:
+   - `[auth.captcha]` em `supabase/config.toml` (bloco já preparado,
+     comentado) com um secret real do Turnstile/hCaptcha;
+   - renderizar o widget do provedor na tela de login e passar o token para
+     `AuthRepository.signUpWithEmail(captchaToken: ...)` — **o parâmetro já
+     existe e está plumbado**, falta só a UI.
+
+   > Deixei desabilitado de propósito: ligar o CAPTCHA no servidor sem o app
+   > enviar o token faria **todo** cadastro passar a ser rejeitado.
+
+   Precisa de uma conta no provedor (não dá para eu criar por você).
+2. **Headers no servidor (Média).** HSTS, X-Frame-Options e Permissions-Policy
    (ver item 8).
-4. **`ALLOWED_ORIGINS` em produção (Média).** Ver item 6.
-5. **MFA (Baixa).** `[auth.mfa.totp]` está pronto, com `enroll_enabled = false`.
+3. **`ALLOWED_ORIGINS` em produção (Média).** Ver item 6.
+4. **MFA (Baixa).** `[auth.mfa.totp]` está pronto, com `enroll_enabled = false`.
    Ativar quando houver tela de gerenciamento.
-6. **Google/Apple OAuth (Média).** O código está implementado, mas exige
+5. **Google/Apple OAuth (Média).** O código está implementado, mas exige
    credenciais OAuth reais no painel do Supabase; no mobile precisa também de
    deep link registrado.
-7. **Monitoramento e logs (Média).** Não há agregação de logs nem alertas.
+6. **Monitoramento e logs (Média).** Não há agregação de logs nem alertas.
    Nada sensível é logado hoje (sem senhas, tokens ou JWT), mas não há como
    detectar um ataque em andamento.
-8. **Segurança mobile (Baixa).** Sem detecção de root/jailbreak nem
+7. **Segurança mobile (Baixa).** Sem detecção de root/jailbreak nem
    ofuscação. Usar `flutter build --obfuscate --split-debug-info` no release.
 
 ---
 
 ## Veredito
 
-O app **não está pronto para produção aberta ainda**, mas as falhas
-exploráveis mais sérias — as que expunham dados de usuários ou permitiam
-abusar da nossa chave de API — foram corrigidas e reverificadas.
+Todas as falhas exploráveis encontradas foram corrigidas e reverificadas
+contra a instância em execução — incluindo as que expunham dados de usuários,
+permitiam abusar da nossa chave da TMDB ou deixavam qualquer usuário
+autenticado gerar carga ilimitada.
 
-Bloqueadores reais para publicar: **rate limiting de aplicação** e **CAPTCHA
-no cadastro** (itens 1 e 2). Sem eles, o app fica exposto a abuso automatizado
-mesmo com todo o resto correto. Os itens 3 e 4 são configuração de deploy e
-devem ser feitos junto com a publicação.
+**Falta um bloqueador para abrir cadastro público: o CAPTCHA** (item 1 das
+pendências). Ele depende de uma conta no provedor e de um widget na tela de
+login; o resto do caminho já está preparado.
+
+Os itens 2 e 3 (headers no servidor e `ALLOWED_ORIGINS`) são configuração de
+deploy e devem ser feitos no momento da publicação — não exigem mudança de
+código.
+
+Para uso fechado (só você e pessoas convidadas), o app já está em condição
+segura de rodar hoje.

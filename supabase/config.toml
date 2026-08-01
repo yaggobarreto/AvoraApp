@@ -214,10 +214,18 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
+#
+# NOT ENABLED YET — enabling this without the app sending a captcha token
+# would reject every signup and lock everyone out. Turning it on is a
+# two-part change (see docs/SECURITY.md, "CAPTCHA no cadastro"):
+#   1. uncomment the block below with a real secret from the provider;
+#   2. render the provider's widget on the login screen and pass the resulting
+#      token to AuthRepository.signUpWithEmail(captchaToken: ...), which
+#      already accepts it.
 # [auth.captcha]
 # enabled = true
-# provider = "hcaptcha"
-# secret = ""
+# provider = "turnstile"
+# secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.

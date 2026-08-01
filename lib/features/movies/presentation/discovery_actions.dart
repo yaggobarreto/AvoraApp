@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/network/app_errors.dart';
 import '../../groups/presentation/group_picker.dart';
 import '../../planner/data/planner_repository.dart';
 import '../data/watch_entries_repository.dart';
@@ -40,7 +41,8 @@ Future<void> registerDiscoveryItem(
   } catch (e) {
     if (!context.mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
   }
 }
 
@@ -67,6 +69,7 @@ Future<void> addDiscoveryItemToWatchlist(
     );
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
   }
 }

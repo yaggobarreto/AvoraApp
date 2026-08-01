@@ -1,4 +1,5 @@
 import { corsHeadersFor } from "./cors.ts";
+import { adminClient, userIdFrom, withinRateLimit } from "./rate_limit.ts";
 
 const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
 export const TMDB_BASE_URL = "https://api.themoviedb.org/3";
@@ -54,8 +55,15 @@ export async function fetchTmdb(path: string): Promise<unknown> {
 }
 
 /// Wraps a handler so unexpected failures return a generic message instead of
-/// a Deno stack trace, and OPTIONS preflight is handled uniformly.
-export function serveTmdb(handler: (req: Request) => Promise<Response>) {
+/// a Deno stack trace, OPTIONS preflight is handled uniformly, and every call
+/// is charged against the caller's TMDB budget.
+///
+/// `action` groups the budget: all four proxies share one pool, because what
+/// we're protecting is the upstream TMDB quota, not any single endpoint.
+export function serveTmdb(
+  handler: (req: Request) => Promise<Response>,
+  { action = "tmdb", maxCalls = 300, windowSeconds = 3600 } = {},
+) {
   Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
       return new Response("ok", { headers: corsHeadersFor(req) });
@@ -68,7 +76,28 @@ export function serveTmdb(handler: (req: Request) => Promise<Response>) {
       return errorResponse(req, "Service unavailable", 503);
     }
 
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return errorResponse(req, "Unauthorized", 401);
+    }
+
     try {
+      const userId = await userIdFrom(authHeader);
+      if (userId === null) {
+        return errorResponse(req, "Unauthorized", 401);
+      }
+
+      const allowed = await withinRateLimit(
+        adminClient(),
+        userId,
+        action,
+        maxCalls,
+        windowSeconds,
+      );
+      if (!allowed) {
+        return errorResponse(req, "Too many requests. Slow down.", 429);
+      }
+
       return await handler(req);
     } catch (error) {
       console.error("Unhandled function error:", error);

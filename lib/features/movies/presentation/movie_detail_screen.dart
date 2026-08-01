@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/network/app_errors.dart';
 import '../../../core/network/supabase_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../groups/presentation/group_picker.dart';
@@ -146,7 +147,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Erro: ${snapshot.error}'));
+            return Center(child: Text(friendlyErrorMessage(snapshot.error!)));
           }
           final details = snapshot.data!;
 
