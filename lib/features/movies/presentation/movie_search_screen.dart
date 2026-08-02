@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/network/app_errors.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
@@ -70,7 +71,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
       }
     } catch (e) {
       if (mounted && generation == _searchGeneration) {
-        setState(() => _errorMessage = e.toString());
+        setState(() => _errorMessage = friendlyErrorMessage(e));
       }
     } finally {
       if (mounted && generation == _searchGeneration) {

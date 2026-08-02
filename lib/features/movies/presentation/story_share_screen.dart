@@ -1,7 +1,7 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
@@ -67,9 +67,14 @@ class _StoryShareScreenState extends State<StoryShareScreen> {
         fileNameOverrides: const ['avora-story.png'],
       );
     } catch (e) {
+      // This is a local failure (image capture, native share sheet), not a
+      // backend one — the raw text is a Flutter/platform exception rather
+      // than something naming our infrastructure, but it's still not meant
+      // for a user-facing string.
+      debugPrint('Story share failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Não deu para compartilhar: $e')),
+          const SnackBar(content: Text('Não foi possível compartilhar. Tente de novo.')),
         );
       }
     } finally {
