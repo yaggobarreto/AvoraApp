@@ -49,3 +49,8 @@ app.*.map.json
 .env.*
 supabase/.env*
 supabase/.temp/
+supabase/.branches/
+
+# Local tool/IDE state — machine-specific, not project source
+.claude/
+devtools_options.yaml

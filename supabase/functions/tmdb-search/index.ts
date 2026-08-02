@@ -1,38 +1,37 @@
-// Proxies TMDB movie search so the API key never ships inside the Flutter app.
-// Expects: GET /tmdb-search?query=interestelar
-import { corsHeaders } from "../_shared/cors.ts";
+// Proxies TMDB multi-search (movies + TV) so the API key never ships inside
+// the Flutter app. Expects: GET /tmdb-search?query=interestelar
+import {
+  errorResponse,
+  fetchTmdb,
+  jsonResponse,
+  serveTmdb,
+} from "../_shared/tmdb.ts";
 
-const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const MAX_QUERY_LENGTH = 120;
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
+serveTmdb(async (req) => {
   const url = new URL(req.url);
-  const query = url.searchParams.get("query");
+  const query = url.searchParams.get("query")?.trim() ?? "";
 
-  if (!query) {
-    return new Response(JSON.stringify({ error: "Missing 'query' parameter" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  if (query.length === 0) {
+    return errorResponse(req, "Missing 'query' parameter", 400);
+  }
+  if (query.length > MAX_QUERY_LENGTH) {
+    return errorResponse(req, "Query too long", 400);
   }
 
-  const tmdbUrl = `${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&language=pt-BR&include_adult=false`;
+  const data = await fetchTmdb(
+    `/search/multi?query=${encodeURIComponent(query)}` +
+      `&language=pt-BR&include_adult=false`,
+  ) as { results?: { media_type?: string }[] };
 
-  const tmdbResponse = await fetch(tmdbUrl, {
-    headers: {
-      Authorization: `Bearer ${TMDB_API_KEY}`,
-      accept: "application/json",
-    },
-  });
+  // Multi-search also returns "person" results (actors/directors) — this app
+  // only cares about movies and TV shows.
+  if (Array.isArray(data.results)) {
+    data.results = data.results.filter(
+      (item) => item.media_type === "movie" || item.media_type === "tv",
+    );
+  }
 
-  const data = await tmdbResponse.json();
-
-  return new Response(JSON.stringify(data), {
-    status: tmdbResponse.status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return jsonResponse(req, data);
 });

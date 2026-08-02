@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/gradient_button.dart';
 import '../../groups/data/groups_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
@@ -167,13 +168,13 @@ class _LogWatchSheetState extends State<LogWatchSheet> {
               },
             ),
             const SizedBox(height: 20),
-            FilledButton(
+            GradientButton(
               onPressed: _isSaving ? null : _save,
               child: _isSaving
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('Salvar'),
             ),

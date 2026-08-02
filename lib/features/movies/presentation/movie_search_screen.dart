@@ -1,14 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../core/network/app_errors.dart';
+import '../../../core/widgets/poster_card.dart';
+import '../../achievements/presentation/achievement_sync_prompt.dart';
 import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
 import 'log_watch_sheet.dart';
+import 'story_share_prompt.dart';
 
 class MovieSearchScreen extends StatefulWidget {
   final String groupId;
+  final String groupName;
 
-  const MovieSearchScreen({super.key, required this.groupId});
+  const MovieSearchScreen({super.key, required this.groupId, required this.groupName});
 
   @override
   State<MovieSearchScreen> createState() => _MovieSearchScreenState();
@@ -23,11 +30,38 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
   bool _isSearching = false;
   bool _isLoggingMovie = false;
   String? _errorMessage;
+  Timer? _debounce;
+  int _searchGeneration = 0;
+
+  void _onQueryChanged(String query) {
+    setState(() {}); // refresh the clear button's visibility
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      _searchGeneration++; // invalidate any in-flight search's result
+      setState(() {
+        _results = [];
+        _isSearching = false;
+      });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 250), _search);
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchGeneration++;
+    _searchController.clear();
+    setState(() {
+      _results = [];
+      _isSearching = false;
+    });
+  }
 
   Future<void> _search() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
+    final generation = ++_searchGeneration;
     setState(() {
       _isSearching = true;
       _errorMessage = null;
@@ -35,18 +69,27 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
 
     try {
       final results = await _tmdbRepository.search(query);
-      setState(() => _results = results);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _results = results);
+      }
     } catch (e) {
-      setState(() => _errorMessage = e.toString());
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _errorMessage = friendlyErrorMessage(e));
+      }
     } finally {
-      if (mounted) setState(() => _isSearching = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _isSearching = false);
+      }
     }
   }
 
   Future<void> _selectMovie(TmdbSearchResult result) async {
     setState(() => _isLoggingMovie = true);
     try {
-      final movie = await _watchEntriesRepository.cacheMovieFromTmdb(result.tmdbId);
+      final movie = await _watchEntriesRepository.cacheMovieFromTmdb(
+        result.tmdbId,
+        mediaType: result.mediaType,
+      );
       if (!mounted) return;
 
       final saved = await showModalBottomSheet<bool>(
@@ -57,9 +100,17 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
 
       if (saved == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Filme registrado!')),
+          const SnackBar(content: Text('Registrado!')),
         );
-        Navigator.of(context).pop();
+        await syncAndCelebrateAchievements(context);
+        if (!mounted) return;
+        await maybeOfferStoryShare(
+          context,
+          groupId: widget.groupId,
+          groupName: widget.groupName,
+          movie: movie,
+        );
+        if (mounted) Navigator.of(context).pop();
       }
     } finally {
       if (mounted) setState(() => _isLoggingMovie = false);
@@ -68,6 +119,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -75,7 +127,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cadastrar filme')),
+      appBar: AppBar(title: const Text('Cadastrar filme ou série')),
       body: Column(
         children: [
           Padding(
@@ -84,12 +136,14 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Ex: Interestelar',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: _search,
-                ),
+                suffixIcon: _searchController.text.isEmpty
+                    ? const Icon(Icons.search)
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: _clearSearch,
+                      ),
               ),
+              onChanged: _onQueryChanged,
               onSubmitted: (_) => _search(),
             ),
           ),
@@ -106,20 +160,35 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
             child: Stack(
               children: [
                 ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: _results.length,
                   itemBuilder: (context, index) {
                     final result = _results[index];
-                    return ListTile(
-                      leading: result.posterUrl != null
-                          ? Image.network(result.posterUrl!, width: 40, fit: BoxFit.cover)
-                          : const Icon(Icons.movie),
-                      title: Text(result.title),
-                      subtitle: Text(result.year?.toString() ?? ''),
+                    return PosterCard(
+                      imageUrl: result.posterUrl,
+                      title: result.title,
+                      subtitle: result.year?.toString(),
+                      height: 110,
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          result.mediaType == 'tv' ? 'Série' : 'Filme',
+                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                        ),
+                      ),
                       onTap: _isLoggingMovie ? null : () => _selectMovie(result),
                     );
                   },
                 ),
-                if (_isLoggingMovie) const Center(child: CircularProgressIndicator()),
+                if (_isLoggingMovie)
+                  const ColoredBox(
+                    color: Colors.black45,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
               ],
             ),
           ),
