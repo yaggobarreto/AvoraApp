@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/app_errors.dart';
 import '../../../core/widgets/movie_rail.dart';
-import '../../achievements/presentation/achievement_sync_prompt.dart';
 import '../../../core/widgets/poster_card.dart';
+import '../../achievements/presentation/achievement_sync_prompt.dart';
+import '../../feed/presentation/activity_feed_screen.dart';
 import '../../groups/domain/group.dart';
 import '../../groups/presentation/invite_screen.dart';
 import '../../movies/data/tmdb_repository.dart';
@@ -216,18 +217,57 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.grid_view_rounded),
-            tooltip: 'Meus filmes',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MyMoviesScreen(
-                  groupId: widget.group.id,
-                  groupName: widget.group.name,
+          // Grouped in an overflow menu rather than two more bare icons —
+          // four+ action icons start clipping on a phone-width app bar.
+          //
+          // Navigation happens via onSelected (fired after the popup route
+          // finishes closing), not PopupMenuItem.onTap — that fires *before*
+          // the popup pops itself, so pushing a new screen from it races
+          // against the menu's own dismissal.
+          PopupMenuButton<_GroupMenuAction>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (action) {
+              switch (action) {
+                case _GroupMenuAction.myMovies:
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MyMoviesScreen(
+                        groupId: widget.group.id,
+                        groupName: widget.group.name,
+                      ),
+                    ),
+                  );
+                case _GroupMenuAction.activity:
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ActivityFeedScreen(
+                        groupId: widget.group.id,
+                        groupName: widget.group.name,
+                      ),
+                    ),
+                  );
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _GroupMenuAction.myMovies,
+                child: ListTile(
+                  leading: Icon(Icons.grid_view_rounded),
+                  title: Text('Meus filmes'),
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
-            ),
+              PopupMenuItem(
+                value: _GroupMenuAction.activity,
+                child: ListTile(
+                  leading: Icon(Icons.dynamic_feed_rounded),
+                  title: Text('Atividade'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -337,3 +377,5 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
     );
   }
 }
+
+enum _GroupMenuAction { myMovies, activity }

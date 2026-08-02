@@ -8,6 +8,9 @@ const _rateLimitedSqlState = 'AV429';
 /// SQLSTATE raised by `join_group_by_invite_code` for an unknown code.
 const _notFoundSqlState = 'AV404';
 
+/// SQLSTATE raised by `get_group_activity_feed` for a non-member.
+const _forbiddenSqlState = 'AV403';
+
 /// Turns a backend failure into something safe to show the user.
 ///
 /// Raw error text can carry hostnames, table names and driver internals, so
@@ -15,7 +18,9 @@ const _notFoundSqlState = 'AV404';
 /// detail goes to the log instead.
 String friendlyErrorMessage(Object error) {
   if (error is PostgrestException) {
-    if (error.code == _rateLimitedSqlState || error.code == _notFoundSqlState) {
+    if (error.code == _rateLimitedSqlState ||
+        error.code == _notFoundSqlState ||
+        error.code == _forbiddenSqlState) {
       // These messages come from our own functions and are written to be
       // read by the user ("Limite de X atingido...", "Convite inválido...").
       return error.message;
