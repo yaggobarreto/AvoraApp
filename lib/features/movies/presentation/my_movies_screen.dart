@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/network/app_errors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../timeline/data/timeline_repository.dart';
 import '../../timeline/domain/watch_entry.dart';
@@ -27,8 +28,17 @@ class MyMoviesScreen extends StatefulWidget {
 }
 
 class _MyMoviesScreenState extends State<MyMoviesScreen> {
+  static const _pageSize = TimelineRepository.defaultPageSize;
+  static const _loadMoreThreshold = 400.0;
+
   final _repository = TimelineRepository();
-  late Future<List<WatchEntry>> _entriesFuture;
+  final _scrollController = ScrollController();
+
+  final List<WatchEntry> _allEntries = [];
+  bool _isLoadingInitial = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  Object? _loadError;
 
   bool _isGrid = true;
   _SortOrder _sortOrder = _SortOrder.newest;
@@ -39,7 +49,71 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
   @override
   void initState() {
     super.initState();
-    _entriesFuture = _repository.fetchMyEntries(widget.groupId);
+    _loadInitial();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Filtering/sorting happens over whatever has loaded so far — the genre,
+  // streamer and year dropdowns grow to include a value only once an entry
+  // using it has actually been fetched, and more loads automatically as the
+  // user scrolls, including while a filter is active.
+  void _onScroll() {
+    if (!_hasMore || _isLoadingMore || _isLoadingInitial) return;
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - _loadMoreThreshold) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _isLoadingInitial = true;
+      _loadError = null;
+    });
+    try {
+      final page = await _repository.fetchMyEntries(widget.groupId, limit: _pageSize);
+      if (!mounted) return;
+      setState(() {
+        _allEntries
+          ..clear()
+          ..addAll(page);
+        _hasMore = page.length == _pageSize;
+        _isLoadingInitial = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e;
+        _isLoadingInitial = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await _repository.fetchMyEntries(
+        widget.groupId,
+        limit: _pageSize,
+        offset: _allEntries.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _allEntries.addAll(page);
+        _hasMore = page.length == _pageSize;
+      });
+    } catch (e) {
+      debugPrint('Failed to load more of "Meus filmes": $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
   }
 
   List<WatchEntry> _applyFiltersAndSort(List<WatchEntry> entries) {
@@ -78,14 +152,15 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<WatchEntry>>(
-        future: _entriesFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: Builder(
+        builder: (context) {
+          if (_isLoadingInitial) {
             return const Center(child: CircularProgressIndicator());
           }
-          final allEntries = snapshot.data ?? [];
-          if (allEntries.isEmpty) {
+          if (_loadError != null) {
+            return Center(child: Text(friendlyErrorMessage(_loadError!)));
+          }
+          if (_allEntries.isEmpty) {
             return const Center(
               child: Text(
                 'Você ainda não registrou nenhum filme aqui.',
@@ -94,12 +169,12 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
             );
           }
 
-          final genres = allEntries.expand((e) => e.movie.genres).toSet().toList()..sort();
-          final locations = allEntries.map((e) => e.watchLocation).toSet().toList();
-          final years = allEntries.map((e) => e.watchedAt.year).toSet().toList()
+          final genres = _allEntries.expand((e) => e.movie.genres).toSet().toList()..sort();
+          final locations = _allEntries.map((e) => e.watchLocation).toSet().toList();
+          final years = _allEntries.map((e) => e.watchedAt.year).toSet().toList()
             ..sort((a, b) => b.compareTo(a));
 
-          final entries = _applyFiltersAndSort(allEntries);
+          final entries = _applyFiltersAndSort(_allEntries);
 
           return Column(
             children: [
@@ -154,6 +229,7 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
 
   Widget _buildGrid(List<WatchEntry> entries) {
     return GridView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -161,8 +237,10 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
         mainAxisSpacing: 16,
         childAspectRatio: 0.55,
       ),
-      itemCount: entries.length,
+      itemCount: entries.length + (_isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index >= entries.length) return const _LoadingMoreTile();
+
         final entry = entries[index];
         return InkWell(
           onTap: () => _openDetail(entry),
@@ -198,9 +276,17 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
 
   Widget _buildList(List<WatchEntry> entries) {
     return ListView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: entries.length,
+      itemCount: entries.length + (_isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index >= entries.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         final entry = entries[index];
         return ListTile(
           leading: ClipRRect(
@@ -230,6 +316,21 @@ class _MyMoviesScreenState extends State<MyMoviesScreen> {
           groupId: widget.groupId,
           groupName: widget.groupName,
         ),
+      ),
+    );
+  }
+}
+
+class _LoadingMoreTile extends StatelessWidget {
+  const _LoadingMoreTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }

@@ -29,19 +29,93 @@ class GroupTimelineScreen extends StatefulWidget {
 }
 
 class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
+  static const _pageSize = TimelineRepository.defaultPageSize;
+  // How close to the bottom (in pixels) before the next page is fetched —
+  // far enough that the fetch finishes before the user actually hits the end.
+  static const _loadMoreThreshold = 400.0;
+
   final _repository = TimelineRepository();
   final _rankingRepository = RankingRepository();
   final _tmdbRepository = TmdbRepository();
-  late Future<List<WatchEntry>> _timelineFuture;
+  final _scrollController = ScrollController();
+
   late Future<List<TopMovie>> _topMoviesFuture;
   late Future<List<TmdbSearchResult>?> _recommendationsFuture;
+
+  final List<WatchEntry> _entries = [];
+  bool _isLoadingInitial = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  Object? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _timelineFuture = _repository.fetchTimeline(widget.group.id);
     _topMoviesFuture = _rankingRepository.fetchTopMovies(widget.group.id);
     _recommendationsFuture = _loadRecommendations();
+    _loadInitialEntries();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _isLoadingMore || _isLoadingInitial) return;
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - _loadMoreThreshold) {
+      _loadMoreEntries();
+    }
+  }
+
+  Future<void> _loadInitialEntries() async {
+    setState(() {
+      _isLoadingInitial = true;
+      _loadError = null;
+    });
+    try {
+      final page = await _repository.fetchTimeline(widget.group.id, limit: _pageSize);
+      if (!mounted) return;
+      setState(() {
+        _entries
+          ..clear()
+          ..addAll(page);
+        _hasMore = page.length == _pageSize;
+        _isLoadingInitial = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e;
+        _isLoadingInitial = false;
+      });
+    }
+  }
+
+  Future<void> _loadMoreEntries() async {
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await _repository.fetchTimeline(
+        widget.group.id,
+        limit: _pageSize,
+        offset: _entries.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _entries.addAll(page);
+        _hasMore = page.length == _pageSize;
+      });
+    } catch (e) {
+      // A failed "load more" shouldn't replace the list already on screen —
+      // hasMore stays true so scrolling near the bottom again just retries.
+      debugPrint('Failed to load more timeline entries: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
   }
 
   Future<List<TmdbSearchResult>?> _loadRecommendations() async {
@@ -54,10 +128,10 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
 
   void _reload() {
     setState(() {
-      _timelineFuture = _repository.fetchTimeline(widget.group.id);
       _topMoviesFuture = _rankingRepository.fetchTopMovies(widget.group.id);
       _recommendationsFuture = _loadRecommendations();
     });
+    _loadInitialEntries();
   }
 
   Future<void> _openMovieSearch() async {
@@ -154,18 +228,15 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<WatchEntry>>(
-        future: _timelineFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: Builder(
+        builder: (context) {
+          if (_isLoadingInitial) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
-            return Center(child: Text(friendlyErrorMessage(snapshot.error!)));
+          if (_loadError != null) {
+            return Center(child: Text(friendlyErrorMessage(_loadError!)));
           }
-
-          final entries = snapshot.data ?? [];
-          if (entries.isEmpty) {
+          if (_entries.isEmpty) {
             return const Center(
               child: Text(
                 'Nenhum filme registrado ainda neste grupo.',
@@ -175,73 +246,83 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
           }
 
           final entriesByYear = <int, List<WatchEntry>>{};
-          for (final entry in entries) {
+          for (final entry in _entries) {
             entriesByYear.putIfAbsent(entry.watchedAt.year, () => []).add(entry);
           }
           final years = entriesByYear.keys.toList()..sort((a, b) => b.compareTo(a));
 
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 8),
-            children: [
-              FutureBuilder<List<TopMovie>>(
-                future: _topMoviesFuture,
-                builder: (context, rankingSnapshot) {
-                  final topMovies = rankingSnapshot.data ?? [];
-                  if (topMovies.isEmpty) return const SizedBox.shrink();
-                  return MovieRail(
-                    title: '🏆 Top do grupo',
-                    itemCount: topMovies.length,
-                    posterUrlBuilder: (i) => topMovies[i].posterUrl,
-                    titleBuilder: (i) => topMovies[i].title,
-                    subtitleBuilder: (i) => '★ ${topMovies[i].avgRating.toStringAsFixed(1)}',
-                    onTap: (i) => _openMovieDetail(topMovies[i].toMovie()),
-                  );
-                },
-              ),
-              FutureBuilder<List<TmdbSearchResult>?>(
-                future: _recommendationsFuture,
-                builder: (context, recSnapshot) {
-                  final recommendations = recSnapshot.data ?? [];
-                  if (recommendations.isEmpty) return const SizedBox.shrink();
-                  return MovieRail(
-                    title: 'Recomendado pro grupo',
-                    itemCount: recommendations.length,
-                    posterUrlBuilder: (i) => recommendations[i].posterUrl,
-                    titleBuilder: (i) => recommendations[i].title,
-                    subtitleBuilder: (i) =>
-                        recommendations[i].mediaType == 'tv' ? 'Série' : 'Filme',
-                    onTap: (i) => _selectRecommendation(recommendations[i]),
-                  );
-                },
-              ),
-              for (final year in years) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Text(
-                    '$year',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(color: Colors.white),
-                  ),
-                ),
-                for (final entry in entriesByYear[year]!)
-                  Builder(builder: (context) {
-                    final stars = (entry.rating ?? 0).round().clamp(0, 5);
-                    return PosterCard(
-                      imageUrl: entry.movie.backdropUrl ?? entry.movie.posterUrl,
-                      title: entry.movie.title,
-                      subtitle: '${'★' * stars}${'☆' * (5 - stars)} '
-                          '· ${watchLocationLabels[entry.watchLocation]}'
-                          '${entry.timesWatched > 1 ? ' · Assistido ${entry.timesWatched}x' : ''}',
-                      trailing: entry.emojis.isNotEmpty
-                          ? Text(entry.emojis.join(), style: const TextStyle(fontSize: 20))
-                          : null,
-                      onTap: () => _openMovieDetail(entry.movie),
+          return RefreshIndicator(
+            onRefresh: () async => _reload(),
+            child: ListView(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(bottom: 8),
+              children: [
+                FutureBuilder<List<TopMovie>>(
+                  future: _topMoviesFuture,
+                  builder: (context, rankingSnapshot) {
+                    final topMovies = rankingSnapshot.data ?? [];
+                    if (topMovies.isEmpty) return const SizedBox.shrink();
+                    return MovieRail(
+                      title: '🏆 Top do grupo',
+                      itemCount: topMovies.length,
+                      posterUrlBuilder: (i) => topMovies[i].posterUrl,
+                      titleBuilder: (i) => topMovies[i].title,
+                      subtitleBuilder: (i) =>
+                          '★ ${topMovies[i].avgRating.toStringAsFixed(1)}',
+                      onTap: (i) => _openMovieDetail(topMovies[i].toMovie()),
                     );
-                  }),
+                  },
+                ),
+                FutureBuilder<List<TmdbSearchResult>?>(
+                  future: _recommendationsFuture,
+                  builder: (context, recSnapshot) {
+                    final recommendations = recSnapshot.data ?? [];
+                    if (recommendations.isEmpty) return const SizedBox.shrink();
+                    return MovieRail(
+                      title: 'Recomendado pro grupo',
+                      itemCount: recommendations.length,
+                      posterUrlBuilder: (i) => recommendations[i].posterUrl,
+                      titleBuilder: (i) => recommendations[i].title,
+                      subtitleBuilder: (i) =>
+                          recommendations[i].mediaType == 'tv' ? 'Série' : 'Filme',
+                      onTap: (i) => _selectRecommendation(recommendations[i]),
+                    );
+                  },
+                ),
+                for (final year in years) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                    child: Text(
+                      '$year',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(color: Colors.white),
+                    ),
+                  ),
+                  for (final entry in entriesByYear[year]!)
+                    Builder(builder: (context) {
+                      final stars = (entry.rating ?? 0).round().clamp(0, 5);
+                      return PosterCard(
+                        imageUrl: entry.movie.backdropUrl ?? entry.movie.posterUrl,
+                        title: entry.movie.title,
+                        subtitle: '${'★' * stars}${'☆' * (5 - stars)} '
+                            '· ${watchLocationLabels[entry.watchLocation]}'
+                            '${entry.timesWatched > 1 ? ' · Assistido ${entry.timesWatched}x' : ''}',
+                        trailing: entry.emojis.isNotEmpty
+                            ? Text(entry.emojis.join(), style: const TextStyle(fontSize: 20))
+                            : null,
+                        onTap: () => _openMovieDetail(entry.movie),
+                      );
+                    }),
+                ],
+                if (_isLoadingMore)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
               ],
-            ],
+            ),
           );
         },
       ),
