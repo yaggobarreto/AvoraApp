@@ -12,6 +12,7 @@ import '../../movies/presentation/log_watch_sheet.dart';
 import '../../movies/presentation/movie_detail_screen.dart';
 import '../../movies/presentation/movie_search_screen.dart';
 import '../../movies/presentation/my_movies_screen.dart';
+import '../../movies/presentation/story_share_prompt.dart';
 import '../../planner/presentation/planner_screen.dart';
 import '../data/ranking_repository.dart';
 import '../data/timeline_repository.dart';
@@ -63,7 +64,10 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MovieSearchScreen(groupId: widget.group.id),
+        builder: (_) => MovieSearchScreen(
+          groupId: widget.group.id,
+          groupName: widget.group.name,
+        ),
       ),
     );
     _reload();
@@ -94,7 +98,16 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
       isScrollControlled: true,
       builder: (_) => LogWatchSheet(groupId: widget.group.id, movie: movie),
     );
-    if (saved == true) _reload();
+    if (saved == true) {
+      _reload();
+      if (!mounted) return;
+      await maybeOfferStoryShare(
+        context,
+        groupId: widget.group.id,
+        groupName: widget.group.name,
+        movie: movie,
+      );
+    }
   }
 
   @override
@@ -119,7 +132,10 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => PlannerScreen(groupId: widget.group.id),
+                builder: (_) => PlannerScreen(
+                  groupId: widget.group.id,
+                  groupName: widget.group.name,
+                ),
               ),
             ),
           ),

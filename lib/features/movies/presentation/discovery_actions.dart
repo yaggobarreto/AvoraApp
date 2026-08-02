@@ -5,6 +5,7 @@ import '../../groups/presentation/group_picker.dart';
 import '../../planner/data/planner_repository.dart';
 import '../data/watch_entries_repository.dart';
 import 'log_watch_sheet.dart';
+import 'story_share_prompt.dart';
 
 /// Shared "register this title" flow for anywhere a movie/série is being
 /// discovered without an existing group context yet (Home rails, the movie
@@ -33,11 +34,20 @@ Future<void> registerDiscoveryItem(
     if (!context.mounted) return;
     Navigator.of(context).pop();
 
-    await showModalBottomSheet<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (_) => LogWatchSheet(groupId: selectedGroup.id, movie: movie),
     );
+
+    if (saved == true && context.mounted) {
+      await maybeOfferStoryShare(
+        context,
+        groupId: selectedGroup.id,
+        groupName: selectedGroup.name,
+        movie: movie,
+      );
+    }
   } catch (e) {
     if (!context.mounted) return;
     Navigator.of(context).pop();

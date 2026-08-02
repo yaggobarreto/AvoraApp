@@ -8,11 +8,13 @@ import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
 import 'log_watch_sheet.dart';
+import 'story_share_prompt.dart';
 
 class MovieSearchScreen extends StatefulWidget {
   final String groupId;
+  final String groupName;
 
-  const MovieSearchScreen({super.key, required this.groupId});
+  const MovieSearchScreen({super.key, required this.groupId, required this.groupName});
 
   @override
   State<MovieSearchScreen> createState() => _MovieSearchScreenState();
@@ -99,7 +101,13 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Registrado!')),
         );
-        Navigator.of(context).pop();
+        await maybeOfferStoryShare(
+          context,
+          groupId: widget.groupId,
+          groupName: widget.groupName,
+          movie: movie,
+        );
+        if (mounted) Navigator.of(context).pop();
       }
     } finally {
       if (mounted) setState(() => _isLoggingMovie = false);

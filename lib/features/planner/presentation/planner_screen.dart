@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../movies/data/watch_entries_repository.dart';
 import '../../movies/domain/movie.dart';
 import '../../movies/presentation/log_watch_sheet.dart';
+import '../../movies/presentation/story_share_prompt.dart';
 import '../data/planner_repository.dart';
 import '../domain/planned_session.dart';
 import '../domain/watchlist_item.dart';
@@ -12,8 +13,9 @@ import 'schedule_session_dialog.dart';
 
 class PlannerScreen extends StatefulWidget {
   final String groupId;
+  final String groupName;
 
-  const PlannerScreen({super.key, required this.groupId});
+  const PlannerScreen({super.key, required this.groupId, required this.groupName});
 
   @override
   State<PlannerScreen> createState() => _PlannerScreenState();
@@ -62,6 +64,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (saved == true) {
       await _repository.updateSessionStatus(session.id, 'watched');
       _reload();
+      if (!mounted) return;
+      await maybeOfferStoryShare(
+        context,
+        groupId: widget.groupId,
+        groupName: widget.groupName,
+        movie: movie,
+      );
     }
   }
 
