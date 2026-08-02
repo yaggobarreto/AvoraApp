@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/app_errors.dart';
+import '../../achievements/presentation/achievement_sync_prompt.dart';
 import '../../groups/presentation/group_picker.dart';
 import '../../planner/data/planner_repository.dart';
 import '../data/watch_entries_repository.dart';
@@ -41,6 +42,8 @@ Future<void> registerDiscoveryItem(
     );
 
     if (saved == true && context.mounted) {
+      await syncAndCelebrateAchievements(context);
+      if (!context.mounted) return;
       await maybeOfferStoryShare(
         context,
         groupId: selectedGroup.id,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/app_errors.dart';
 import '../../../core/widgets/poster_card.dart';
+import '../../achievements/presentation/achievement_sync_prompt.dart';
 import '../data/tmdb_repository.dart';
 import '../data/watch_entries_repository.dart';
 import '../domain/movie.dart';
@@ -101,6 +102,8 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Registrado!')),
         );
+        await syncAndCelebrateAchievements(context);
+        if (!mounted) return;
         await maybeOfferStoryShare(
           context,
           groupId: widget.groupId,

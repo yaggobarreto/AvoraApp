@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/supabase_config.dart';
 import '../../../core/storage/image_upload.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../achievements/presentation/achievements_screen.dart';
 import '../../movies/domain/movie.dart';
 import '../data/profile_repository.dart';
 
@@ -72,6 +73,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Perfil'),
         actions: [
+          IconButton(
+            tooltip: 'Conquistas',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AchievementsScreen()),
+            ),
+            icon: const Icon(Icons.emoji_events_outlined),
+          ),
           IconButton(
             onPressed: () => supabase.auth.signOut(),
             icon: const Icon(Icons.logout),

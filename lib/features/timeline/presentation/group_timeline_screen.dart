@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/app_errors.dart';
 import '../../../core/widgets/movie_rail.dart';
+import '../../achievements/presentation/achievement_sync_prompt.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../groups/domain/group.dart';
 import '../../groups/presentation/invite_screen.dart';
@@ -174,6 +175,8 @@ class _GroupTimelineScreenState extends State<GroupTimelineScreen> {
     );
     if (saved == true) {
       _reload();
+      if (!mounted) return;
+      await syncAndCelebrateAchievements(context);
       if (!mounted) return;
       await maybeOfferStoryShare(
         context,

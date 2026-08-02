@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../movies/data/watch_entries_repository.dart';
 import '../../movies/domain/movie.dart';
+import '../../achievements/presentation/achievement_sync_prompt.dart';
 import '../../movies/presentation/log_watch_sheet.dart';
 import '../../movies/presentation/story_share_prompt.dart';
 import '../data/planner_repository.dart';
@@ -64,6 +65,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (saved == true) {
       await _repository.updateSessionStatus(session.id, 'watched');
       _reload();
+      if (!mounted) return;
+      await syncAndCelebrateAchievements(context);
       if (!mounted) return;
       await maybeOfferStoryShare(
         context,
